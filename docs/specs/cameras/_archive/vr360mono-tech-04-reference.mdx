@@ -1,0 +1,384 @@
+---
+title: VR360 Mono Camera - Part 4: Reference & Testing
+description: API reference, test cases, performance notes, and dependencies
+status: Planning
+priority: Medium
+---
+
+# VR360 Mono Camera - Part 4: Reference & Testing
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr360mono-tech-01-overview.mdx)
+- [← Part 2: Core Implementation](./vr360mono-tech-02-implementation.mdx)
+- [← Part 3: Operators & UI](./vr360mono-tech-03-operators.mdx)
+
+---
+
+## Blender API Calls Reference
+
+### Camera Creation
+
+```python
+# Create camera
+bpy.ops.object.camera_add(location=(x, y, z))
+cam = bpy.context.active_object
+
+# Set to panoramic
+cam.data.type = 'PANO'
+
+# Set equirectangular
+cam.data.cycles.panorama_type = 'EQUIRECTANGULAR'
+```
+
+### Render Settings
+
+```python
+scene = bpy.context.scene
+
+# Resolution (2:1 ratio for equirectangular)
+scene.render.resolution_x = 7680
+scene.render.resolution_y = 3840
+scene.render.resolution_percentage = 100
+
+# FFmpeg H.265
+scene.render.image_settings.file_format = 'FFMPEG'
+scene.render.ffmpeg.format = 'MPEG4'
+scene.render.ffmpeg.codec = 'H265'
+scene.render.ffmpeg.video_bitrate = 150000  # 150Mbps
+
+# Cycles
+scene.render.engine = 'CYCLES'
+scene.cycles.device = 'GPU'
+scene.cycles.samples = 512
+scene.cycles.use_denoising = True
+```
+
+---
+
+## Test Cases
+
+### Test 1: Basic Camera Creation
+
+```python
+def test_create_basic_camera():
+    """Test creating default VR360 camera"""
+    cam = create_vr360_mono_camera()
+
+    assert cam is not None
+    assert cam.data.type == 'PANO'
+    assert cam.data.cycles.panorama_type == 'EQUIRECTANGULAR'
+```
+
+### Test 2: Resolution Preset Application
+
+```python
+def test_resolution_preset():
+    """Test resolution preset application"""
+    settings = bpy.context.scene.vr360_mono_settings
+
+    w, h, fps = apply_resolution_preset('YOUTUBE_8K', settings)
+
+    assert w == 7680
+    assert h == 3840
+    assert fps == 60
+
+    # Check 2:1 ratio
+    assert w / h == 2.0
+```
+
+### Test 3: Metadata Injection
+
+```python
+def test_metadata_injection():
+    """Test VR360 metadata injection"""
+    input_file = "test_render.mp4"
+    output_file = "test_with_metadata.mp4"
+
+    success = inject_vr360_metadata(
+        input_file,
+        output_file,
+        verify=True
+    )
+
+    assert success == True
+    assert os.path.exists(output_file)
+```
+
+### Test 4: Camera Level Check
+
+```python
+def test_camera_level_check():
+    """Test camera level detection"""
+    cam = create_vr360_mono_camera()
+
+    # Test level camera
+    is_level, tilt_x, tilt_y = check_camera_level(cam, tolerance_degrees=2.0)
+    assert is_level == True
+
+    # Test tilted camera
+    cam.rotation_euler.x = math.radians(5.0)
+    is_level, tilt_x, tilt_y = check_camera_level(cam, tolerance_degrees=2.0)
+    assert is_level == False
+    assert abs(tilt_x - 5.0) < 0.1
+```
+
+### Test 5: Equirectangular Aspect Ratio
+
+```python
+def test_equirectangular_ratio():
+    """Test that resolution maintains 2:1 aspect ratio"""
+    presets = ['YOUTUBE_4K', 'YOUTUBE_5K', 'YOUTUBE_8K', 'META_QUEST']
+
+    for preset in presets:
+        settings = bpy.context.scene.vr360_mono_settings
+        w, h, fps = apply_resolution_preset(preset, settings)
+
+        # Equirectangular should be 2:1
+        ratio = w / h
+        assert abs(ratio - 2.0) < 0.01, f"{preset} ratio {ratio} != 2.0"
+```
+
+---
+
+## Performance Notes
+
+### Render Time Estimates (RTX 4090)
+
+| Resolution | Samples | Frame Time | 30s Video | Notes |
+|------------|---------|------------|-----------|-------|
+| 3840×2160 (4K) | 256 | ~25s | ~12 min | Preview |
+| 5120×2560 (5K) | 512 | ~50s | ~25 min | Production |
+| 7680×3840 (8K) | 1024 | ~3 min | ~1.5 hours | Final |
+
+**Optimization Tips:**
+- Use GPU (OptiX) - 10-20x faster than CPU
+- Enable adaptive sampling - 20-30% faster
+- Use path guiding - 10-15% faster
+- Denoise vs more samples - denoising usually faster
+- VR360 mono renders ~2x faster than VR180 stereo (single camera)
+
+### Memory Requirements
+
+| Resolution | Per-Frame VRAM | Scene Complexity |
+|------------|----------------|------------------|
+| 4K (3840×2160) | ~2-3 GB | Simple - Medium |
+| 5K (5120×2560) | ~3-5 GB | Medium - Complex |
+| 8K (7680×3840) | ~6-12 GB | Complex only |
+
+**Memory Optimization:**
+- Use out-of-core rendering for large scenes
+- Enable persistent data for animation
+- Use simplified geometry for distant objects
+- Optimize texture sizes
+- Single camera means ~50% less VRAM vs stereo
+
+### Disk Space Requirements
+
+**Final Video:**
+- H.265 @ 100Mbps: ~750 MB per minute (4K-5K)
+- H.265 @ 150Mbps: ~1.1 GB per minute (8K)
+- ProRes 422 HQ: ~3-5 GB per minute
+
+**Example for 5-minute video (8K @ 60fps):**
+- Final MP4: 5 min × 1.1 GB = ~5.5 GB
+
+---
+
+## Dependencies
+
+### Required
+- Blender 5.0+ (3.6+ may work)
+- Cycles render engine
+- Python 3.10+
+
+### Bundled
+- spatial-media (Google, Apache 2.0)
+
+### Optional
+- NVIDIA GPU with OptiX support (recommended)
+- AMD GPU with HIP support
+- FFmpeg (bundled with Blender)
+
+### Python Package Requirements
+
+```python
+# requirements.txt (if packaging separately)
+# No external packages required - uses Blender's bundled libraries
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue: Metadata injection fails**
+```python
+# Check spatial-media is bundled
+addon_dir = Path(__file__).parent.parent
+spatialmedia_dir = addon_dir / "lib" / "spatialmedia"
+print(f"Spatial-media found: {spatialmedia_dir.exists()}")
+```
+
+**Issue: GPU rendering not working**
+```python
+# Check available GPU devices
+prefs = bpy.context.preferences
+cycles_prefs = prefs.addons['cycles'].preferences
+for device in cycles_prefs.devices:
+    print(f"Device: {device.name}, Type: {device.type}, Use: {device.use}")
+```
+
+**Issue: Camera not level**
+```python
+# Auto-level camera
+auto_level_camera(camera)
+
+# Or manually check/adjust
+is_level, tilt_x, tilt_y = check_camera_level(camera)
+if not is_level:
+    print(f"Camera tilted by {tilt_x:.2f}° (X), {tilt_y:.2f}° (Y)")
+```
+
+**Issue: Wrong aspect ratio**
+```python
+# Equirectangular must be 2:1
+width = scene.render.resolution_x
+height = scene.render.resolution_y
+ratio = width / height
+
+if abs(ratio - 2.0) > 0.01:
+    print(f"⚠ Warning: Aspect ratio {ratio:.2f} != 2.0")
+    print("Equirectangular should be 2:1 (e.g., 7680×3840)")
+```
+
+---
+
+## YouTube Upload Guidelines
+
+### Pre-Upload Checklist
+
+- [ ] Video resolution: 3840×2160 minimum (7680×3840 recommended)
+- [ ] Aspect ratio: 2:1 (equirectangular)
+- [ ] Frame rate: 30, 60, or 90 fps (60 recommended)
+- [ ] Codec: H.265 (HEVC) or H.264
+- [ ] Bitrate: 100-150 Mbps for 8K
+- [ ] VR360 metadata injected and verified
+- [ ] Audio: AAC, 384 kbps recommended
+
+### YouTube Studio Settings
+
+After upload:
+1. Video settings → Advanced → "360° video" → Enable
+2. Add title with "VR360" or "360°" for discoverability
+3. Add description noting VR headset recommended
+4. Processing may take 1-2 hours for VR features
+
+### Recommended YouTube Specs
+
+| Quality Level | Resolution | Bitrate | Use Case |
+|---------------|------------|---------|----------|
+| Good | 3840×2160 | 50 Mbps | Mobile VR |
+| Better | 5120×2560 | 100 Mbps | Quest/PSVR |
+| Best | 7680×3840 | 150 Mbps | High-end PCVR |
+
+---
+
+## VR360 vs VR180 Comparison
+
+| Feature | VR360 Mono | VR180 Stereo |
+|---------|-----------|--------------|
+| **Cameras** | 1 camera | 2 cameras (left/right) |
+| **Field of View** | 360° × 180° | 180° × 180° |
+| **Projection** | Equirectangular | Dual fisheye |
+| **Stereoscopic** | No (2D) | Yes (3D) |
+| **Aspect Ratio** | 2:1 | 2:1 (side-by-side) |
+| **Render Time** | Faster (~50% of VR180) | Slower (2 eyes) |
+| **File Size** | Smaller | Larger |
+| **Complexity** | Simple | More complex |
+| **Use Cases** | Environments, tours, landscapes | Close interaction, depth perception |
+
+---
+
+## Best Practices
+
+### Camera Placement
+- Eye level (1.6m) for natural perspective
+- Keep camera perfectly level (prevents motion sickness)
+- Avoid moving camera rapidly
+- Smooth, slow movements work best
+
+### Content Design
+- Action in all directions (360° coverage)
+- No "back" to the scene - viewer can look anywhere
+- Guide viewer attention with audio and visual cues
+- Avoid fast cuts - use fades/transitions
+
+### Lighting
+- 360° lighting required (viewer sees everything)
+- Avoid visible light sources (hard to hide)
+- Use environmental/HDRI lighting when possible
+- Consistent lighting all around
+
+### Performance
+- Optimize distant geometry (viewer sees 360°)
+- Use LOD (Level of Detail) systems
+- Bake lighting when possible
+- Test on target VR platform
+
+---
+
+## Sources
+
+- [YouTube VR360 Specs Research](../../research/youtube-vr360-specs.mdx)
+- [Blender VR Best Practices](../../research/blender-vr-best-practices.mdx)
+- [Metadata Injection Automation](../../research/metadata-injection-automation.mdx)
+- [Google spatial-media](https://github.com/google/spatial-media)
+- [Blender Cycles Documentation](https://docs.blender.org/manual/en/latest/render/cycles/)
+- [YouTube VR360 Upload Guidelines](https://support.google.com/youtube/answer/6178631)
+
+---
+
+## Change Log
+
+**v1.0 - Initial Specification**
+- Complete data model
+- Core implementation functions
+- Two-step workflow operators
+- UI panels
+- Test cases
+- Performance benchmarks
+- VR360 vs VR180 comparison
+
+---
+
+**Ready for implementation! All code is copy-paste ready.**
+
+---
+
+## Quick Start Guide
+
+1. **Install the add-on** (once implemented)
+2. **Step 1:** Click "Add VR360 Camera & Scene" - creates camera, lighting, background
+3. **Step 2:** Click "Render & Export to YouTube" - renders and creates final MP4 with metadata
+4. **Upload to YouTube** and wait for VR processing to complete!
+
+**That's it!** Two clicks from scene to YouTube-ready VR360 video.
+
+---
+
+## Differences from VR180
+
+This VR360 mono implementation is simpler than VR180 because:
+
+1. **Single camera** - No IPD, no stereo complexity
+2. **No compositor needed** - Direct render to video
+3. **No crash recovery** - Simpler workflow (can add if needed)
+4. **Simpler metadata** - Mono instead of stereo mode
+5. **Faster rendering** - Half the work (1 camera vs 2)
+
+However, it shares:
+- Same quality presets
+- Same GPU optimization
+- Same metadata injection system
+- Similar UI/UX patterns

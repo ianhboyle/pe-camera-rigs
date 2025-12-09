@@ -1,0 +1,453 @@
+---
+title: VR360 Mono Camera - Part 1: Overview & Data Model
+description: Data structures, property definitions, and function signatures
+status: Planning
+priority: Medium
+---
+
+# VR360 Mono Camera - Part 1: Overview & Data Model
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Blender 5.0+, Cycles, spatial-media (bundled)
+
+---
+
+## Overview
+
+This is Part 1 of the VR360 Mono technical specification, covering:
+- Data model and property definitions
+- Function signatures and interfaces
+- File organization structure
+
+For implementation details, see:
+- [Part 2: Core Implementation](./vr360mono-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./vr360mono-tech-03-operators.mdx)
+- [Part 4: Reference & Testing](./vr360mono-tech-04-reference.mdx)
+
+---
+
+## Data Model
+
+### Property Group Definition
+
+```python
+# File: addons/vr_production_toolkit/ui/properties.py
+
+import bpy
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    EnumProperty,
+    BoolProperty,
+    StringProperty,
+)
+from bpy.types import PropertyGroup
+
+
+class VR360MonoSettings(PropertyGroup):
+    """Settings for VR360 monoscopic camera"""
+
+    # ==========================================
+    # Camera Parameters
+    # ==========================================
+
+    camera_height: FloatProperty(
+        name="Camera Height",
+        description="Camera height (eye level)",
+        default=1.6,
+        min=0.1,
+        max=3.0,
+        soft_min=1.4,
+        soft_max=1.8,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    # ==========================================
+    # Resolution Presets
+    # ==========================================
+
+    resolution_preset: EnumProperty(
+        name="Resolution Preset",
+        description="YouTube VR360 resolution presets",
+        items=[
+            ('YOUTUBE_4K', "YouTube 4K", "3840×2160 (4K equirectangular), 60fps"),
+            ('YOUTUBE_5K', "YouTube 5K", "5120×2560 (5K equirectangular), 60fps"),
+            ('YOUTUBE_8K', "YouTube 8K", "7680×3840 (8K equirectangular), 60fps - Recommended"),
+            ('META_QUEST', "Meta Quest", "5760×2880 (optimized for Quest), 72fps"),
+            ('CUSTOM', "Custom", "User-defined resolution"),
+        ],
+        default='YOUTUBE_8K',
+    )
+
+    resolution_x: IntProperty(
+        name="Resolution X",
+        description="Equirectangular width (2:1 ratio recommended)",
+        default=7680,
+        min=1024,
+        max=16384,
+        subtype='PIXEL',
+    )
+
+    resolution_y: IntProperty(
+        name="Resolution Y",
+        description="Equirectangular height (half of width for 2:1 ratio)",
+        default=3840,
+        min=512,
+        max=8192,
+        subtype='PIXEL',
+    )
+
+    fps: IntProperty(
+        name="Frame Rate",
+        description="Frames per second (60fps recommended for VR)",
+        default=60,
+        min=24,
+        max=120,
+        soft_min=30,
+        soft_max=90,
+    )
+
+    # ==========================================
+    # Render Quality Presets
+    # ==========================================
+
+    quality_preset: EnumProperty(
+        name="Quality Preset",
+        description="Render quality vs speed trade-off",
+        items=[
+            ('PREVIEW', "Preview", "128-256 samples, fast for testing"),
+            ('PRODUCTION', "Production", "512 samples, balanced quality/speed - Recommended"),
+            ('FINAL', "Final", "1024+ samples, highest quality"),
+            ('CUSTOM', "Custom", "Manual sample count"),
+        ],
+        default='PRODUCTION',
+    )
+
+    samples: IntProperty(
+        name="Render Samples",
+        description="Number of samples per pixel",
+        default=512,
+        min=1,
+        max=4096,
+        soft_min=128,
+        soft_max=2048,
+    )
+
+    use_denoising: BoolProperty(
+        name="Use Denoising",
+        description="Enable OptiX denoising",
+        default=True,
+    )
+
+    # ==========================================
+    # Output Settings
+    # ==========================================
+
+    output_path: StringProperty(
+        name="Output Path",
+        description="Path for rendered VR360 video",
+        default="//vr360_output",
+        subtype='FILE_PATH',
+    )
+
+    output_format: EnumProperty(
+        name="Output Format",
+        description="Video encoding format",
+        items=[
+            ('YOUTUBE', "YouTube (H.265)", "MP4 H.265/HEVC, 150Mbps - YouTube ready"),
+            ('MASTER', "Master (ProRes)", "MOV ProRes 422 HQ - Archive quality"),
+            ('CUSTOM', "Custom", "Manual FFmpeg settings"),
+        ],
+        default='YOUTUBE',
+    )
+
+    bitrate: IntProperty(
+        name="Bitrate (Mbps)",
+        description="Video bitrate in megabits per second",
+        default=150,
+        min=10,
+        max=500,
+        soft_min=50,
+        soft_max=300,
+    )
+
+    # ==========================================
+    # Metadata Injection
+    # ==========================================
+
+    auto_inject_metadata: BoolProperty(
+        name="Auto-Inject VR360 Metadata",
+        description="Automatically inject YouTube VR360 spatial metadata after rendering",
+        default=True,
+    )
+
+    verify_metadata: BoolProperty(
+        name="Verify Metadata",
+        description="Verify that metadata was successfully injected",
+        default=True,
+    )
+
+    # ==========================================
+    # Advanced Settings
+    # ==========================================
+
+    use_gpu: BoolProperty(
+        name="Use GPU Rendering",
+        description="Use GPU acceleration (OptiX/HIP)",
+        default=True,
+    )
+
+    use_path_guiding: BoolProperty(
+        name="Use Path Guiding",
+        description="Enable path guiding (Blender 5.0+)",
+        default=True,
+    )
+
+    adaptive_threshold: FloatProperty(
+        name="Adaptive Sampling Threshold",
+        description="Adaptive sampling noise threshold",
+        default=0.01,
+        min=0.0,
+        max=1.0,
+        precision=3,
+    )
+
+    # ==========================================
+    # Color Space & Workflow
+    # ==========================================
+
+    color_space: EnumProperty(
+        name="Color Space",
+        description="Color space for rendering",
+        items=[
+            ('SRGB', "sRGB", "Standard sRGB (Rec.709 primaries, 2.2 gamma) - YouTube default"),
+            ('REC709', "Rec.709", "Rec.709 - Broadcast video standard"),
+            ('ACES', "ACES", "ACES - High-end film/VFX workflow"),
+        ],
+        default='SRGB',
+    )
+
+    # ==========================================
+    # Camera Level Check
+    # ==========================================
+
+    check_camera_level: BoolProperty(
+        name="Check Camera Level",
+        description="Warn if camera is tilted (prevents motion sickness)",
+        default=True,
+    )
+
+    level_tolerance: FloatProperty(
+        name="Level Tolerance",
+        description="Maximum tilt angle before warning (degrees)",
+        default=2.0,
+        min=0.5,
+        max=10.0,
+        soft_max=5.0,
+        precision=1,
+        subtype='ANGLE',
+    )
+
+    show_horizon_line: BoolProperty(
+        name="Show Horizon Line",
+        description="Display horizon line in viewport for leveling reference",
+        default=True,
+    )
+
+    auto_level_on_create: BoolProperty(
+        name="Auto-Level on Create",
+        description="Automatically level camera when creating rig",
+        default=True,
+    )
+```
+
+---
+
+## Function Signatures
+
+### Core Functions
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+import bpy
+import math
+from typing import Tuple, Optional
+from mathutils import Vector
+
+
+def create_vr360_mono_camera(
+    camera_height: float = 1.6,
+    resolution: Tuple[int, int] = (7680, 3840),
+    name: str = "VR360_Camera",
+) -> bpy.types.Object:
+    """
+    Create a VR360 monoscopic equirectangular camera.
+
+    Args:
+        camera_height: Camera height from ground in meters (default: 1.6m)
+        resolution: (width, height) equirectangular resolution (default: 7680×3840)
+        name: Name for the camera object (default: "VR360_Camera")
+
+    Returns:
+        Camera object
+
+    Example:
+        >>> cam = create_vr360_mono_camera()
+        >>> cam.location = (0, 0, 1.6)  # Position at eye level
+    """
+    pass  # Implementation in Part 2
+
+
+def inject_vr360_metadata(
+    input_file: str,
+    output_file: str,
+    verify: bool = True,
+) -> bool:
+    """
+    Inject VR360 spatial metadata into rendered video.
+
+    Uses bundled spatial-media library to add YouTube VR360 metadata.
+
+    Args:
+        input_file: Path to input video file (MP4/MOV)
+        output_file: Path to output file with metadata
+        verify: Verify metadata was injected successfully
+
+    Returns:
+        True if successful, False otherwise
+
+    Example:
+        >>> success = inject_vr360_metadata(
+        ...     "render_temp.mp4",
+        ...     "final_youtube.mp4"
+        ... )
+    """
+    pass  # Implementation in Part 2
+
+
+def setup_gpu_rendering(
+    scene: bpy.types.Scene,
+    tile_size: int = 512,
+) -> None:
+    """
+    Configure GPU rendering with OptiX/HIP detection.
+
+    Args:
+        scene: Scene to configure
+        tile_size: Render tile size (default: 512 for GPU)
+
+    Example:
+        >>> setup_gpu_rendering(bpy.context.scene)
+    """
+    pass  # Implementation in Part 2
+
+
+def apply_resolution_preset(
+    preset: str,
+    settings: 'VR360MonoSettings',
+) -> Tuple[int, int, int]:
+    """
+    Apply resolution preset and return (width, height, fps).
+
+    Args:
+        preset: Preset name ('YOUTUBE_4K', 'YOUTUBE_5K', 'YOUTUBE_8K', 'META_QUEST')
+        settings: VR360MonoSettings property group
+
+    Returns:
+        Tuple of (width, height, fps)
+
+    Example:
+        >>> w, h, fps = apply_resolution_preset('YOUTUBE_8K', settings)
+        >>> # w=7680, h=3840, fps=60
+    """
+    pass  # Implementation in Part 2
+
+
+def check_camera_level(
+    camera: bpy.types.Object,
+    tolerance_degrees: float = 2.0,
+) -> Tuple[bool, float, float]:
+    """
+    Check if VR360 camera is level (critical for motion sickness prevention).
+
+    Args:
+        camera: Camera object to check
+        tolerance_degrees: Maximum acceptable tilt (default: 2°)
+
+    Returns:
+        Tuple of (is_level, tilt_x_degrees, tilt_y_degrees)
+
+    Example:
+        >>> is_level, tilt_x, tilt_y = check_camera_level(camera)
+        >>> if not is_level:
+        ...     print(f"⚠️ Camera tilted! X: {tilt_x:.1f}°, Y: {tilt_y:.1f}°")
+    """
+    pass  # Implementation in Part 2
+
+
+def apply_color_space(
+    scene: bpy.types.Scene,
+    color_space: str,
+) -> None:
+    """
+    Apply color space settings to scene.
+
+    Args:
+        scene: Scene to apply color space to
+        color_space: 'SRGB', 'REC709', or 'ACES'
+
+    Example:
+        >>> apply_color_space(bpy.context.scene, 'SRGB')
+    """
+    pass  # Implementation in Part 2
+```
+
+---
+
+## File Organization
+
+```
+addons/vr_production_toolkit/
+├── __init__.py                 # Add-on registration
+├── camera_rigs.py              # create_vr360_mono_camera()
+├── render_utils.py             # Rendering helpers
+├── metadata_utils.py           # inject_vr360_metadata()
+├── gpu_optimization.py         # setup_gpu_rendering()
+├── ui/
+│   ├── __init__.py
+│   ├── panels.py               # UI panels
+│   ├── operators.py            # Blender operators
+│   └── properties.py           # VR360MonoSettings PropertyGroup
+├── lib/
+│   └── spatialmedia/           # Bundled Google spatial-media
+│       ├── __init__.py
+│       ├── metadata_utils.py
+│       └── ...
+└── presets/
+    └── vr360_youtube.py        # YouTube preset
+```
+
+---
+
+## Two-Step Workflow Overview
+
+```
+Step 1: [Add VR360 Camera & Scene]
+    ↓
+  Creates complete scene setup
+  (camera, lighting, background, reference)
+    ↓
+Step 2: [Render & Export to YouTube]
+    ↓
+  Renders equirectangular video → H.265 + metadata
+  YouTube-ready MP4!
+```
+
+---
+
+**Continue to:**
+- [Part 2: Core Implementation →](./vr360mono-tech-02-implementation.mdx)

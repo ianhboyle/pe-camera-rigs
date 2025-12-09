@@ -1,0 +1,187 @@
+---
+title: "VR360 Mono Camera: Code Implementation"
+description: "Code specification for the Python-based VR360 rig and its 4-step professional workflow."
+status: Planning
+priority: High
+---
+
+# VR360 Mono Camera: Code & Node Implementation
+
+**See also:**
+- [← Part 1: Live Controller Workflow & UX](./vr360mono-01-userflow-and-ux.mdx)
+
+---
+
+## Overview
+
+This document outlines the Python implementation for the **VR360 Mono 4-step professional workflow**. The operators will create the camera and all scene elements using pure Python helper functions.
+
+**Key Implementation Features:**
+- **Python-based Scene Creation:** The camera, cyclorama, and reference sphere are all generated via Python scripts.
+- **Helper Functions:** Logic for creating scene elements will be organized into reusable Python functions.
+- **Dedicated UI Panel:** A comprehensive UI panel provides access to all settings and workflow steps.
+
+---
+
+## File Structure
+
+All VR360 Mono Camera code will be placed in a dedicated module: `src/pe_camera_rigs/vr360mono/`.
+
+- `__init__.py`: Handles registration for this module.
+- `operators.py`: Contains `VR360_OT_CreateScene`, `VR360_OT_RenderSequence`, `VR360_OT_SetupCompositor`, `VR360_OT_RenderYouTube`.
+- `panels.py`: Contains the main VR360 workflow panel.
+- `properties.py`: Contains the PropertyGroup for scene settings.
+- `rig.py`: Contains helper functions for creating the camera.
+
+---
+
+## 1. Step 1: Create VR360 Scene Operator
+
+### File: `vr360mono/operators.py`
+
+The `VR360_OT_CreateScene` operator handles the creation of the camera and all scene elements using pure Python helper functions.
+
+```python
+import bpy
+from bpy.types import Operator
+from bpy.props import EnumProperty
+
+from .rig import create_vr360_camera
+from ...utils.scene_setup import (
+    create_cyclorama,
+    create_lighting_preset,
+    add_reference_sphere,
+)
+from ...core_utils import detect_and_enable_gpu
+
+class VR360_OT_CreateScene(Operator):
+    """1️⃣ Create VR360 Scene - Sets up a VR360 Mono rig and scene elements"""
+    bl_idname = "vr360.create_scene"
+    bl_label = "1️⃣ Create VR360 Scene"
+    # ... (bl_description, bl_options, and operator properties for lighting, etc.)
+
+    def execute(self, context):
+        settings = context.scene.cgt_vr360_settings
+
+        # 1. Create the VR360 camera
+        camera = create_vr360_camera(context, height=1.6)
+        
+        # 2. Create lighting, cyclorama, and reference objects
+        if self.lighting_preset != 'NONE':
+            create_lighting_preset(context, preset=self.lighting_preset)
+        
+        if self.include_cyclorama:
+            create_cyclorama(context, size=self.cyclorama_size, color=self.cyclorama_color)
+
+        if self.include_reference:
+            add_reference_sphere(context)
+            
+        # 3. Auto-configure scene settings
+        context.scene.render.engine = 'CYCLES'
+        context.scene.render.resolution_x = 5120
+        context.scene.render.resolution_y = 2560
+        detect_and_enable_gpu(context)
+
+        # 4. Set active camera and select it
+        context.scene.camera = camera
+        bpy.ops.object.select_all(action='DESELECT')
+        camera.select_set(True)
+        context.view_layer.objects.active = camera
+
+        self.report({'INFO'}, "✅ VR360 Scene created!")
+        return {'FINISHED'}
+```
+
+## 2. Rig & Scene Creation
+
+### File: `vr360mono/rig.py`
+
+This file contains the helper function for creating the VR360 camera.
+
+```python
+import bpy
+import math
+
+def create_vr360_camera(context, height=1.6):
+    """
+    Creates a single, level, equirectangular camera for VR360 Mono.
+    
+    Returns:
+        (bpy.types.Object): The created camera object.
+    """
+    bpy.ops.object.camera_add(location=(0, 0, height))
+    camera = context.active_object
+    camera.name = "VR360_Camera"
+    
+    cam_data = camera.data
+    cam_data.type = 'PANO'
+    cam_data.cycles.panorama_type = 'EQUIRECTANGULAR'
+    
+    # Level the camera
+    camera.rotation_euler[0] = math.radians(90)
+    camera.rotation_euler[1] = 0
+    camera.rotation_euler[2] = 0
+
+    return camera
+```
+
+### File: `utils/scene_setup.py`
+
+This shared utility file contains helper functions for creating common scene elements.
+
+```python
+def create_cyclorama(context, size, color):
+    """Creates a simple mesh-based cyclorama stage."""
+    # ... Python code to create a plane, extrude edges, and add a subdivision/bevel modifier ...
+    pass
+
+def create_lighting_preset(context, preset):
+    """Creates a set of lights based on a preset name."""
+    # ... Python code to create and position lights ...
+    pass
+
+def add_reference_sphere(context):
+    """Adds a simple sphere for scale reference."""
+    # ... Python code to create a sphere mesh object ...
+    pass
+```
+
+---
+
+## 3. UI Panels
+
+### File: `vr360mono/panels.py`
+
+The main VR360 workflow panel (`VR360_PT_Workflow`) contains all settings for the 4-step workflow.
+
+```python
+import bpy
+from bpy.types import Panel
+
+class VR360_PT_Workflow(Panel):
+    """The main 4-Step Workflow Panel in the 3D View Sidebar"""
+    bl_label = "VR360 Mono Professional Workflow"
+    bl_idname = "VR360_PT_workflow"
+    # ... other panel properties ...
+
+    def draw(self, context):
+        # This panel will contain the 4 workflow buttons and all global settings
+        # for resolution, quality, output path, lighting, and scene elements.
+        # All properties are stored on the scene's cgt_vr360_settings PropertyGroup.
+        layout = self.layout
+        settings = context.scene.cgt_vr360_settings
+        
+        # ... UI for all 4 steps and their settings ...
+```
+
+---
+
+## Summary of Changes
+
+The VR360 Mono implementation uses a pure Python approach to create the camera and all associated scene elements, and to drive the 4-step rendering workflow.
+
+1.  **Python-based Scene Creation:** The camera, cyclorama, lighting, and reference objects are all generated via Python operators and helper functions.
+2.  **No Controllers:** There are no "controller" objects or Geometry Nodes modifiers; the created objects are standard Blender objects.
+3.  **All-in-one UI:** All settings are contained within the main addon panel in the 3D View's sidebar.
+
+This architecture provides a stable and understandable workflow that is easy to maintain.

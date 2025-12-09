@@ -1,0 +1,613 @@
+---
+title: "Isometric Camera Guide"
+description: "Complete guide to creating isometric and axonometric projection views for games, architecture, and technical illustrations."
+---
+
+# Isometric Camera Guide
+
+The **Isometric Camera** creates true isometric, dimetric, and custom axonometric projection views. Perfect for game art, technical illustrations, architecture visualizations, and pixel-perfect sprites.
+
+**Type:** Interactive Rig (Geometry Nodes)
+**Setup Time:** 30 seconds
+**Skill Level:** Beginner-friendly
+
+**Note:** *This rig was inspired by the excellent isometric camera tutorial by [Polygon Runway](https://polygonrunway.com).*
+
+---
+
+## What You'll Learn
+
+- Understanding isometric vs. perspective projection
+- Using all 7 projection presets
+- Creating custom axonometric angles
+- Rendering pixel-perfect game sprites
+- Architectural visualization techniques
+
+---
+
+## Quick Start (2 Minutes)
+
+### Step 1: Add the Rig
+
+1. Open the **3D Viewport** sidebar (press `N`)
+2. Click the **"PE Cams"** tab
+3. Find the **"Isometric Camera"** panel
+4. Select a projection preset:
+   - **Game 2:1** - Popular for game art (26.565° tilt)
+   - **Game 4:3** - Gentler ratio (19.471° tilt)
+   - **True Isometric** - Mathematical isometric (35.264° tilt, 45° rotation)
+   - **Dimetric** - 30° variant
+   - **Military** - Top-down 90° view
+   - **Cavalier** - 45° oblique projection
+   - **Custom** - Define your own angles
+5. Click **"Add Isometric Rig"**
+
+**Result:** Two objects appear:
+- `Isometric_Controller` - Controller object (empty)
+- `Isometric_Camera` - Orthographic camera
+
+### Step 2: Adjust Settings
+
+1. **Select** the `Isometric_Controller`
+2. Go to **Object Properties** tab (orange square icon)
+3. Scroll down to **"Isometric Camera Settings"** panel
+4. Adjust settings in real-time:
+   - **Projection Type** - Switch between presets instantly
+   - **Ortho Scale** - Zoom in/out
+   - **Custom angles** - Available when Projection Type = Custom
+
+### Step 3: Frame Your Scene
+
+1. Press **`Numpad 0`** to look through camera
+2. **Move the controller** (not the camera!) to frame your scene
+   - Use `G` to grab/move
+   - The camera angle stays fixed to the projection type
+3. Adjust **Ortho Scale** for final framing
+
+**Done!** You have a perfect isometric view.
+
+---
+
+## Understanding Isometric Projection
+
+### What is Isometric?
+
+**Isometric** means "equal measure" - parallel lines stay parallel and measurements along each axis are equally scaled. Unlike perspective cameras, objects don't get smaller with distance.
+
+**Key Differences:**
+
+| Perspective Camera | Orthographic (Isometric) Camera |
+|--------------------|----------------------------------|
+| Objects shrink with distance | Objects stay same size |
+| Parallel lines converge | Parallel lines stay parallel |
+| Natural to human eye | Technical/stylized look |
+| Depth of field | No depth of field |
+
+**When to use Isometric:**
+- Game art (strategy games, RPGs)
+- Technical drawings
+- Architecture diagrams
+- Pixel art sprites
+- Board game assets
+
+---
+
+## The 7 Projection Presets
+
+### 1. Game 2:1 (26.565° tilt)
+
+**Best For:** Modern game art, popular in indie games
+**Characteristics:**
+- 2:1 horizontal to vertical ratio
+- Moderate tilt angle
+- Balances clarity with visual interest
+**Examples:** Many 2D/2.5D strategy and simulation games
+
+---
+
+### 2. Game 4:3 (19.471° tilt)
+
+**Best For:** Less extreme angle, more "overhead" feel
+**Characteristics:**
+- 4:3 ratio (gentler than 2:1)
+- Lower tilt = more top-down view
+- Good for tactical/strategy games
+**Examples:** Classic RTS games
+
+---
+
+### 3. True Isometric (35.264° tilt, 45° rotation)
+
+**Best For:** Traditional technical drawings, classic game art
+**Characteristics:**
+- All three axes equally foreshortened
+- 35.264° tilt (arctan(1/√2))
+- 45° horizontal rotation
+- The "mathematically correct" isometric
+**Examples:** Classic isometric RPGs, technical illustrations
+
+---
+
+### 4. Dimetric (30° tilt)
+
+**Best For:** Variation on isometric, slightly different feel
+**Characteristics:**
+- 30° tilt angle
+- Two axes equally scaled, third different
+- Popular in some game engines
+**Examples:** Alternative to true isometric
+
+---
+
+### 5. Military (90° tilt)
+
+**Best For:** Floor plans, top-down views, maps
+**Characteristics:**
+- Pure top-down view
+- 90° tilt (looking straight down)
+- Orthographic but not angled
+**Examples:** Architectural floor plans, strategy game maps
+
+---
+
+### 6. Cavalier (45° oblique)
+
+**Best For:** Cabinet/oblique projections, technical drawings
+**Characteristics:**
+- 45° oblique projection
+- Front face shown true-to-scale
+- Depth recedes at 45°
+**Examples:** Furniture design, mechanical drawings
+
+---
+
+### 7. Custom (Your Angles)
+
+**Best For:** Unique artistic styles, custom requirements
+**Characteristics:**
+- Define your own rotation, tilt, and roll
+- Full control over projection angle
+- Experiment with non-standard views
+**Examples:** Stylized art, custom game engines
+
+---
+
+## Understanding the Settings
+
+**Where to find:** Select `Isometric_Controller` → **Object Properties** tab → **"Isometric Camera Settings"** panel
+
+**✨ New:** Settings now update in real-time! Change any property and the viewport updates immediately.
+
+### 📐 Projection Type
+
+Dropdown menu with 7 presets:
+- **Game 2:1** - 26.565° tilt for 2:1 pixel art
+- **Game 4:3** - 30° tilt for 4:3 pixel art
+- **True Isometric** - 35.264° tilt, mathematically correct
+- **Dimetric** - 30° variant
+- **Military** - Top-down 90° view
+- **Cavalier** - 45° oblique projection
+- **Custom** - Define your own angles (shows custom angle inputs)
+
+**Tip:** Switch between presets instantly to compare views!
+
+---
+
+### 🔍 Ortho Scale
+
+Controls zoom level (orthographic scale):
+- **Smaller values** = zoomed in (tight framing)
+- **Larger values** = zoomed out (wide view)
+- **Default:** 10.0
+
+**Important:** With orthographic cameras, you zoom by changing scale, not by moving closer!
+
+**Examples:**
+- **5.0** = Close-up (small object fills frame)
+- **10.0** = Medium (character or furniture)
+- **30.0** = Wide (building or large scene)
+
+---
+
+### Custom Angles (Only when Projection Type = Custom)
+
+When **Custom** projection is selected, three additional angle inputs appear:
+
+**Custom Rotation Z** (Degrees)
+- Horizontal spin around Z-axis
+- **0°** = Front
+- **45°** = Diagonal
+- **90°** = Side
+- **180°** = Back
+
+**Custom Tilt X** (Degrees)
+- Vertical tilt (camera pitch)
+- **0°** = Looking at horizon
+- **35.264°** = Isometric-like
+- **90°** = Top-down
+
+**Custom Roll Y** (Degrees)
+- Camera roll/banking (rarely used)
+- **0°** = Level
+- Usually keep at 0°
+
+**Note:** Values are in degrees for easy adjustment. The addon handles radian conversion internally.
+
+---
+
+## Working with Custom Angles
+
+**Good News:** Custom angle properties use **degrees** in the UI for easier adjustment!
+
+The addon handles radian conversion internally - you don't need to calculate radians yourself.
+
+**Quick Reference:**
+
+| Degrees | Description |
+|---------|-------------|
+| 0° | Front/Level |
+| 30° | Shallow angle |
+| 45° | Diagonal |
+| 60° | Steep angle |
+| 90° | Side/Top-down |
+| 180° | Back/Upside-down |
+
+**Tip:** Use whole number degrees for easy experimentation (15°, 30°, 45°, 60°, etc.)
+
+---
+
+## Step-by-Step Tutorials
+
+### Tutorial 1: Game Sprite Render
+
+**Goal:** Render a character for a 2D game
+
+1. **Prepare your model:**
+   - Center character at origin (0, 0, 0)
+   - Character facing +Y direction
+   - Standing on Z=0 plane
+
+2. **Add Isometric Rig:**
+   - Select preset: **Game 2:1**
+   - Click "Add Isometric Rig"
+
+3. **Position camera:**
+   - Select `Isometric_Controller`
+   - Move it to frame character (`G` to grab)
+   - Typical: X=5, Y=-5, Z=3
+   - Press `Numpad 0` to look through camera
+
+4. **Adjust zoom:**
+   - Modifier Properties → **Ortho Scale**
+   - Adjust until character fills frame (try 8.0)
+
+5. **Render Settings:**
+   ```
+   Resolution: 1024×1024 (power of 2 for games)
+   Samples: 32 (low for cel-shaded look)
+   Color Management: Standard (not Filmic for flat colors)
+   Film: Transparent (check for alpha background)
+   ```
+
+6. **Render:** Press `F12`
+
+**Result:** Perfect game sprite!
+
+**Bonus:** Create 8-direction sprites by rotating character 45° each time (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°).
+
+---
+
+### Tutorial 2: Architectural Floor Plan
+
+**Goal:** Top-down orthographic view of building
+
+1. **Add Isometric Rig:**
+   - Select preset: **Military** (top-down)
+
+2. **Position camera:**
+   - Move `Isometric_Controller` directly above building
+   - Increase Z height (e.g., Z=20 for large building)
+
+3. **Adjust scale:**
+   - **Ortho Scale:** Large value to see whole building (try 30.0)
+
+4. **Render Settings:**
+   ```
+   Resolution: 4096×4096 (high detail)
+   Engine: Eevee (faster for flat views)
+   No shadows (optional for clean plans)
+   ```
+
+**Result:** Clean architectural floor plan!
+
+---
+
+### Tutorial 3: Technical Exploded View
+
+**Goal:** Isometric exploded assembly diagram
+
+1. **Add Isometric Rig:**
+   - Select preset: **True Isometric**
+
+2. **Prepare scene:**
+   - Separate parts slightly (exploded view)
+   - Add reference arrows/dimensions (Grease Pencil)
+
+3. **Lighting:**
+   - Use flat, even lighting
+   - Avoid dramatic shadows
+   - Consider ambient occlusion for depth
+
+4. **Render:**
+   - High resolution for clarity
+   - White or transparent background
+   - Freestyle for line art (optional)
+
+**Result:** Professional technical illustration!
+
+---
+
+### Tutorial 4: Custom Angle Experimentation
+
+**Goal:** Find unique artistic angle
+
+1. **Add Isometric Rig:**
+   - Select preset: **Custom**
+
+2. **Experiment with angles:**
+   - Select `Isometric_Controller`
+   - Go to **Object Properties** → **Isometric Camera Settings**
+   - Set **Projection Type** to **Custom**
+   - Try **Custom Rotation Z:** 30°
+   - Try **Custom Tilt X:** 50°
+   - Keep **Custom Roll Y:** 0°
+   - **Watch the viewport update in real-time!**
+
+3. **Save preset:**
+   - When you find angle you like
+   - Note down the degree values
+   - Reuse in future projects
+
+**Result:** Unique custom perspective!
+
+---
+
+## Rendering Tips
+
+### For Game Art
+
+**Pixel-Perfect Sprites:**
+```
+Resolution: Power of 2 (512, 1024, 2048)
+Anti-Aliasing: Minimal or OFF
+Sampling: Low (8-32 for Cycles)
+Color Space: sRGB (not Filmic)
+Output: PNG with transparency
+Filters: None (keep pixels sharp)
+```
+
+**Cel-Shaded Style:**
+- Use Shader to RGB node
+- Emission shader for flat colors
+- No gradients or soft shadows
+
+---
+
+### For Architecture
+
+**Clean Technical Views:**
+```
+Resolution: High (4K+ for prints)
+Engine: Eevee or Cycles
+Shadows: Soft, minimal
+Materials: Clay renders or realistic
+Background: White or transparent
+```
+
+**Line Art Overlays:**
+- Enable Freestyle
+- Adjust line thickness
+- Export separate line and color passes
+
+---
+
+### For Product Documentation
+
+**Assembly Instructions:**
+```
+Resolution: Print-ready (300 DPI)
+Lighting: Bright, even, shadowless
+Style: Clean, uncluttered
+Annotations: Add in post-processing
+Background: Pure white
+```
+
+---
+
+## Troubleshooting
+
+### View looks wrong / Objects don't line up
+
+**Check:**
+- You're looking through camera (`Numpad 0`)
+- Camera is in **Orthographic** mode (not Perspective)
+  - Camera Properties → Type → Orthographic
+
+**Solution:** Modifier should auto-set this, but verify in Camera Properties.
+
+---
+
+### Can't see my object / Everything is tiny
+
+**Cause:** **Ortho Scale** is too large
+
+**Solution:**
+- Decrease **Ortho Scale** value
+- Start with 10.0 and adjust
+
+---
+
+### Object is off-center
+
+**Remember:** Move the **controller**, not the camera!
+- Select `Isometric_Controller`
+- Press `G` to move it
+- Frame your scene
+
+**Tip:** Camera angle is fixed to projection - controller position determines framing.
+
+---
+
+### Projection doesn't look correct
+
+**Check:**
+- **Projection Type** is set to desired preset (0-6)
+- Try switching between presets to compare
+- For Custom, verify angle values are in radians
+
+---
+
+### Depth of field doesn't work
+
+**This is normal:** Orthographic cameras don't support depth of field.
+**Workaround:** Use Mist Pass or compositor depth effects for fake DOF.
+
+---
+
+## Use Cases & Examples
+
+### Game Development
+- **2D/2.5D Sprites:** Character animations, items, buildings
+- **Environment Tiles:** Repeating floor/wall patterns
+- **UI Icons:** Inventory items, ability icons
+- **Concept Art:** Game world layouts
+
+### Architecture
+- **Floor Plans:** Top-down building layouts
+- **Axonometric Sections:** Cutaway technical views
+- **Urban Planning:** City block visualizations
+- **Construction Docs:** Assembly diagrams
+
+### Technical Illustration
+- **Product Manuals:** Assembly instructions
+- **Engineering Drawings:** Mechanical parts
+- **Educational Diagrams:** Scientific illustrations
+- **Infographics:** Data visualization
+
+### Art & Design
+- **Pixel Art:** Stylized game art
+- **Voxel Art:** Minecraft-style renders
+- **Board Games:** Token and tile design
+- **Icon Design:** App icons, logos
+
+---
+
+## Tips & Best Practices
+
+**Setting Up:**
+- Center subjects at world origin for easiest framing
+- Face objects toward +Y for consistent orientation
+- Start with presets, move to Custom when needed
+
+**For Games:**
+- Use power-of-2 resolutions (512, 1024, 2048)
+- Disable anti-aliasing for sharp pixels
+- Render on transparent background
+- Create sprite sheets with multiple angles
+
+**For Architecture:**
+- Use Military preset for pure floor plans
+- True Isometric for presentation renders
+- Add dimensions and annotations in 2D after render
+- Keep lighting even and shadows minimal
+
+**For Technical Work:**
+- High resolution for print quality
+- Clean, flat materials (clay renders)
+- Consider Freestyle for line art
+- White background for documentation
+
+---
+
+## Advanced Techniques
+
+### Animated Isometric Views
+
+Although isometric is static, you can still animate:
+
+**Rotating Object:**
+- Keep camera still
+- Rotate the object on its Z-axis
+- Creates turnaround in isometric view
+
+**Camera Path:**
+- Animate controller's position
+- Move along predetermined path
+- Maintains isometric angle throughout
+
+---
+
+### Combining with Freestyle
+
+Beautiful line art overlays:
+
+1. Enable Freestyle (Render Properties)
+2. Set up line sets
+3. Render with lines
+4. Composite over flat colors in post
+
+---
+
+### Multiple Projections
+
+Compare different angles:
+
+1. Create multiple isometric rigs
+2. Each with different preset
+3. Render same scene from each
+4. Compare results
+
+**Use case:** Finding best angle for game art
+
+---
+
+## Keyboard Shortcuts Reference
+
+| Action | Shortcut |
+|--------|----------|
+| Look through camera | `Numpad 0` |
+| Move selected | `G` |
+| Reset location | `Alt + G` |
+| Set origin to geometry | `Object` → `Set Origin` → `Origin to Geometry` |
+| Render image | `F12` |
+| Toggle sidebar | `N` |
+
+---
+
+## Next Steps
+
+**Explore Other Rigs:**
+- [Orbit Camera](./orbit-camera.mdx) - For turntable animations
+- [VR180 Workflow](./vr180-workflow.mdx) - For stereoscopic VR
+- [VR360 Workflow](./vr360-workflow.mdx) - For 360° VR
+
+**Learn More:**
+- [Getting Started Guide](./getting-started.mdx) - Overview of all rigs
+- [Troubleshooting Guide](./troubleshooting.mdx) - Common issues
+- [Installation Guide](./installation.mdx) - Setup & preferences
+
+---
+
+## Feedback & Support
+
+**Found a bug?** [Report on GitHub](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+
+**Have questions?** Check existing issues or ask in Discussions.
+
+**Want to improve this guide?** Contributions welcome!
+
+---
+
+**Happy Projecting!** 📐✨
+
+Part of the [Perpetual Exploration](https://perpetualexploration.com) project.

@@ -1,0 +1,221 @@
+---
+title: "PE Camera Rigs: Developer Packaging Guide"
+description: "How to package the PE Camera Rigs addon for distribution to end users."
+---
+
+# Packaging Guide for Developers
+
+This guide explains how to create a distributable `.zip` file of the PE Camera Rigs addon for Blender. This is intended for developers and maintainers preparing releases.
+
+---
+
+## Overview
+
+Blender addons are distributed as `.zip` archives containing a single Python package folder. The structure must be:
+
+```
+pe_camera_rigs.zip
+└── pe_camera_rigs/          ← Package folder (matches bl_info name)
+    ├── __init__.py
+    ├── preferences.py
+    ├── ui/
+    ├── rigs/
+    └── utils/
+```
+
+**Critical Requirements:**
+- The zip must contain the `pe_camera_rigs` folder at its **root level**
+- Do NOT include the `src` parent folder
+- Do NOT zip individual `.py` files without the package folder
+
+---
+
+## Packaging Steps
+
+### Method 1: Command Line (macOS / Linux)
+
+**Recommended** for consistent results and automation.
+
+```bash
+# Navigate to the project root
+cd /path/to/blender-camera-rigs-addon
+
+# Navigate into the src directory
+cd src
+
+# Create the zip file (output goes to parent directory)
+zip -r ../pe_camera_rigs.zip pe_camera_rigs
+
+# For versioned releases:
+zip -r ../pe_camera_rigs_v1.0.0.zip pe_camera_rigs
+
+# Verify the structure
+unzip -l ../pe_camera_rigs.zip | head -20
+```
+
+**Expected output:**
+```
+Archive:  pe_camera_rigs.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  12-08-2025 10:30   pe_camera_rigs/
+     1234  12-08-2025 10:30   pe_camera_rigs/__init__.py
+      567  12-08-2025 10:30   pe_camera_rigs/preferences.py
+        0  12-08-2025 10:30   pe_camera_rigs/ui/
+...
+```
+
+### Method 2: Windows File Explorer
+
+1. **Navigate to the `src` folder** in File Explorer
+2. **Right-click** on the `pe_camera_rigs` folder (not inside it)
+3. Select **`Send to`** → **`Compressed (zipped) folder`**
+4. **Rename** the resulting `pe_camera_rigs.zip` file if desired:
+   - For releases: `pe_camera_rigs_v1.0.0.zip`
+   - For development: `pe_camera_rigs_dev.zip`
+
+### Method 3: macOS Finder
+
+1. **Navigate to the `src` folder** in Finder
+2. **Right-click** (or Control-click) on the `pe_camera_rigs` folder
+3. Select **`Compress "pe_camera_rigs"`**
+4. **Rename** the resulting `pe_camera_rigs.zip` file if desired
+
+---
+
+## Verification
+
+Before distributing, **always verify** the zip structure:
+
+### Visual Inspection
+
+1. **Open the `.zip` file** in your archive manager
+2. **Check the first level** - you should see:
+   - ✅ `pe_camera_rigs/` folder at the root
+   - ❌ NOT `src/pe_camera_rigs/`
+   - ❌ NOT loose `.py` files at the root
+
+### Command Line Verification
+
+```bash
+# List the top-level contents
+unzip -l pe_camera_rigs.zip | grep "pe_camera_rigs/" | head -5
+
+# Expected: Should show pe_camera_rigs/ as the first entry
+# Wrong: Would show src/ or individual .py files
+```
+
+### Test Installation
+
+**Always test the zip file in Blender before distributing:**
+
+1. Open a fresh Blender instance
+2. Go to `Edit` → `Preferences` → `Add-ons`
+3. Click `Install...` and select your `.zip` file
+4. Enable "PE Camera Rigs" in the addon list
+5. Check for errors in the System Console (`Window` → `Toggle System Console`)
+6. Verify the "PE Cams" tab appears in the 3D Viewport sidebar (press `N`)
+
+---
+
+## Release Checklist
+
+Before creating an official release:
+
+- [ ] Update version number in `src/pe_camera_rigs/__init__.py` bl_info
+- [ ] Update `CHANGELOG.md` with new features and fixes
+- [ ] Run all four rigs to verify functionality
+- [ ] Check for Python errors in System Console
+- [ ] Test installation from zip on a clean Blender instance
+- [ ] Verify zip filename matches version (e.g., `pe_camera_rigs_v1.0.0.zip`)
+- [ ] Test on target Blender version (4.0.0+)
+- [ ] Update README.md with latest version info
+- [ ] Create GitHub release with zip attachment
+- [ ] Tag the commit with version number (e.g., `v1.0.0`)
+
+---
+
+## Troubleshooting
+
+### Problem: "No module named 'pe_camera_rigs'" after installation
+
+**Cause:** Zip file was created from the wrong directory.
+
+**Solution:** The zip must contain `pe_camera_rigs/` at the root. Delete and recreate from the `src` directory.
+
+### Problem: Blender shows "Module not a valid addon"
+
+**Cause:** Missing or malformed `bl_info` dictionary in `__init__.py`.
+
+**Solution:** Verify `src/pe_camera_rigs/__init__.py` contains a valid `bl_info` dict with all required fields.
+
+### Problem: Addon loads but panels don't appear
+
+**Cause:** Registration errors or incorrect `bl_category` in panels.
+
+**Solution:**
+1. Check System Console for Python errors
+2. Verify all panels use `bl_category = 'PE Cams'`
+3. Ensure registration order is correct (properties before panels)
+
+### Problem: "Permission denied" when creating zip on Windows
+
+**Cause:** File is locked by another process (e.g., Blender, Python IDE).
+
+**Solution:** Close Blender and any editors, then retry.
+
+---
+
+## Automated Build Script (Optional)
+
+For frequent releases, create a build script:
+
+**`build.sh` (macOS/Linux):**
+```bash
+#!/bin/bash
+set -e
+
+VERSION="v1.0.0"
+OUTPUT_NAME="pe_camera_rigs_${VERSION}.zip"
+
+echo "Building PE Camera Rigs ${VERSION}..."
+
+cd src
+zip -r "../${OUTPUT_NAME}" pe_camera_rigs
+cd ..
+
+echo "✓ Created ${OUTPUT_NAME}"
+echo "✓ Size: $(du -h ${OUTPUT_NAME} | cut -f1)"
+echo ""
+echo "Next steps:"
+echo "  1. Test installation in Blender"
+echo "  2. Create GitHub release"
+echo "  3. Upload ${OUTPUT_NAME}"
+```
+
+Make it executable: `chmod +x build.sh`
+
+Run it: `./build.sh`
+
+---
+
+## Distribution
+
+Once verified, distribute via:
+
+1. **GitHub Releases** - Attach the zip file to a tagged release
+2. **Direct Download** - Host on a web server or CDN
+3. **Blender Extensions Platform** - Submit following their guidelines (Blender 4.2+)
+
+**File Naming Convention:**
+- Development builds: `pe_camera_rigs_dev_YYYYMMDD.zip`
+- Release candidates: `pe_camera_rigs_v1.0.0-rc1.zip`
+- Stable releases: `pe_camera_rigs_v1.0.0.zip`
+
+---
+
+## See Also
+
+- [Installation Guide](./01-installation.mdx) - For end users
+- [User Guide](./02-users_guide.mdx) - How to use the addon
+- [CLAUDE.md](../../CLAUDE.md) - Development guidelines

@@ -1,0 +1,528 @@
+---
+title: Orbit Camera Rig
+description: Automated circular orbit camera for product visualization and character showcases
+status: Planning
+priority: High
+---
+
+# Orbit Camera Rig
+
+**Status:** Planning
+**Priority:** High
+**Type:** Animated Camera Rig
+**Target Use:** Product visualization, character showcases, 360° presentations, portfolio pieces
+
+---
+
+## Overview
+
+The Orbit Camera Rig creates an automated circular camera animation that orbits around a target object while always pointing at the center. Perfect for product photography, character turnarounds, architectural visualization, and portfolio showcases.
+
+### What is an Orbit Camera?
+
+An orbit camera rotates in a perfect circle around a focal point (typically an object or character), maintaining constant focus on the target throughout the rotation. It's the standard for e-commerce product photography, character showcases, and promotional videos.
+
+**Key Benefits:**
+- **One-click setup** - Automated rig creation and animation
+- **Perfect circle** - Smooth, professional orbit motion
+- **Always focused** - Track To constraint keeps camera aimed at target
+- **Customizable** - Radius, height, speed, angle all adjustable
+- **Production-ready** - Industry-standard settings for product viz
+- **No manual keyframes** - Automatic 360° animation
+
+---
+
+## Use Cases
+
+### Product Visualization
+- **E-commerce Products** - Shoes, electronics, furniture, accessories
+- **3D Product Photography** - 360° interactive viewers
+- **Promotional Videos** - Product reveal animations
+- **Catalog Photography** - Consistent multi-angle shots
+- **Packaging Design** - Show products from all sides
+
+### Character & Animation
+- **Character Turnarounds** - Model sheets and reference
+- **Animation Showcases** - Display rigged characters
+- **Game Asset Previews** - Preview characters and props
+- **Portfolio Pieces** - Professional character presentation
+- **Concept Art Reference** - Multi-angle character views
+
+### Architectural & Design
+- **Building Exteriors** - Architectural walkarounds
+- **Interior Design** - Room and furniture showcases
+- **Landscape Design** - Garden and outdoor space tours
+- **Industrial Design** - Machinery and vehicle showcases
+- **Sculpture & Art** - Fine art documentation
+
+### Technical & Educational
+- **CAD Model Review** - Engineering part inspection
+- **Educational Content** - Anatomy models, molecular structures
+- **Scientific Visualization** - Research models and diagrams
+- **Training Materials** - Equipment and assembly showcases
+- **Documentation** - Technical part photography
+
+---
+
+## Key Features
+
+### Automated Rig Setup
+- **Empty-based parent system** - Camera parents to rotating empty
+- **Track To constraint** - Always points at target
+- **Circular path** - Perfect orbit circle
+- **Keyframe automation** - Auto-generates start/end keyframes
+- **No manual animation** - Set duration, press play
+
+### Flexible Configuration
+- **Orbit radius** - Distance from target (1m - 50m)
+- **Camera height** - Elevation above target (-10m to +10m)
+- **Orbit angle** - Vertical tilt (0° = level, +45° = above, -45° = below)
+- **Rotation speed** - Frames for complete 360° (60, 120, 180, 240, custom)
+- **Rotation direction** - Clockwise or counter-clockwise
+- **Target offset** - Aim above/below object center
+
+### Camera Settings
+- **Focal length presets** - 35mm (product), 50mm (portrait), 85mm (detail), custom
+- **Depth of field** - Optional focus with f-stop control
+- **Sensor size** - Full-frame (36mm), APS-C (24mm), Micro 4/3 (17mm)
+- **Resolution presets** - 4K, 2K, HD, Square (1:1), custom
+- **Aspect ratios** - 16:9, 4:3, 1:1, 2.35:1
+
+### Scene Integration
+- **Auto-level** - Ensures camera is perfectly horizontal
+- **Look at height offset** - Target above/below object center
+- **Multiple orbit rigs** - Stack multiple cameras for different angles
+- **Render layers** - Each camera to separate layer
+- **Frame range** - Auto-sets timeline to match orbit duration
+
+---
+
+## Workflow
+
+### Quick Start (3 Clicks)
+
+1. **Select Target Object**
+   - Select the object you want to orbit around
+   - Position it at origin (0, 0, 0) or note its location
+
+2. **Create Orbit Rig**
+   - Click "Add Orbit Camera" in VR Production Toolkit panel
+   - Camera rig appears with default settings
+   - Animation automatically keyframed
+
+3. **Press Play**
+   - Camera orbits smoothly around object
+   - Always points at target center
+   - Ready to render!
+
+### Detailed Workflow
+
+1. **Prepare Scene**
+   - Position target object at desired location
+   - Add lighting (or use HDRI)
+   - Optionally add background/floor
+
+2. **Create Orbit Rig**
+   - Select target object
+   - Click "Add Orbit Camera"
+   - Rig creates: Empty (pivot), Camera (child), Track To constraint
+
+3. **Customize Settings**
+   - Adjust orbit radius (distance from target)
+   - Set camera height (elevation)
+   - Choose focal length (35mm, 50mm, 85mm)
+   - Set rotation duration (frames for 360°)
+
+4. **Preview Animation**
+   - Scrub timeline to see orbit path
+   - Adjust settings if needed
+   - Camera maintains perfect circle and focus
+
+5. **Render Options**
+   - **Single orbit:** Render 0-360° rotation
+   - **Multi-angle:** Render specific angles (front, side, back, 3/4 view)
+   - **Image sequence:** Render every N frames for 360° viewer
+   - **Video:** Render smooth rotation video
+
+---
+
+## Orbit Presets
+
+### Product Photography
+**Settings:**
+- Orbit radius: 3m
+- Camera height: 1.5m above target
+- Focal length: 35mm
+- Rotation: 240 frames (10 sec @ 24fps)
+- Direction: Counter-clockwise
+- DOF: Enabled (f/2.8)
+
+**Use case:** E-commerce products, clean presentation
+
+### Character Showcase
+**Settings:**
+- Orbit radius: 4m
+- Camera height: 1.6m (eye level)
+- Focal length: 50mm
+- Rotation: 180 frames (7.5 sec @ 24fps)
+- Direction: Clockwise
+- DOF: Enabled (f/4.0)
+
+**Use case:** Character turnarounds, portfolio
+
+### Hero Shot (Low Angle)
+**Settings:**
+- Orbit radius: 2.5m
+- Camera height: 0.5m above target
+- Focal length: 24mm (wide)
+- Rotation: 120 frames (5 sec @ 24fps)
+- Direction: Counter-clockwise
+- DOF: Disabled
+
+**Use case:** Dramatic product reveals, vehicles
+
+### Detail Inspection
+**Settings:**
+- Orbit radius: 1.5m (close)
+- Camera height: Level with target
+- Focal length: 85mm (telephoto)
+- Rotation: 360 frames (15 sec @ 24fps)
+- Direction: Slow clockwise
+- DOF: Enabled (f/1.8)
+
+**Use case:** Close-up details, jewelry, small products
+
+### Architectural Walkaround
+**Settings:**
+- Orbit radius: 15m
+- Camera height: 2m above ground
+- Focal length: 35mm
+- Rotation: 480 frames (20 sec @ 24fps)
+- Direction: Counter-clockwise
+- DOF: Disabled
+
+**Use case:** Buildings, large structures
+
+---
+
+## Technical Specifications
+
+### Rig Hierarchy
+
+```
+Orbit_Empty (pivot point at target)
+  └─ Camera (child, offset by radius)
+       └─ Track To Constraint → Target Object
+```
+
+### Empty Settings
+- **Location:** Target object center (or custom)
+- **Rotation Mode:** XYZ Euler
+- **Animation:** Z-axis rotation from 0° to 360°
+- **Display:** Plain Axes, size 1.0
+
+### Camera Settings
+- **Type:** Perspective (default) or Orthographic
+- **Focal Length:** 35mm (default), 50mm, 85mm, custom
+- **Sensor Size:** 36mm (full-frame default)
+- **Depth of Field:** Optional, f/2.8 - f/16
+- **Position:** Offset from empty by radius on local X-axis
+
+### Track To Constraint
+- **Target:** Selected object or empty at target location
+- **Track Axis:** -Z (camera front)
+- **Up Axis:** Y (camera up)
+- **Target Space:** World Space
+- **Owner Space:** World Space
+
+### Animation Keyframes
+- **Frame 1:** Empty Z rotation = 0°
+- **Frame N:** Empty Z rotation = 360°
+- **Interpolation:** Linear (smooth, constant speed)
+- **Handles:** Auto or Vector for perfect circle
+
+---
+
+## Camera Controls
+
+### Orbit Parameters
+- **Radius:** 0.5m - 50m (distance from target)
+- **Height:** -10m to +10m (elevation above/below target)
+- **Vertical Angle:** -90° to +90° (tilt up/down while orbiting)
+- **Start Angle:** 0° - 360° (where orbit begins)
+- **End Angle:** 0° - 720° (where orbit ends, >360° for multi-rotation)
+
+### Timing Controls
+- **Duration (frames):** 60, 120, 180, 240, 360, custom
+- **FPS:** 24, 30, 60 (frames per second)
+- **Direction:** Clockwise / Counter-clockwise
+- **Easing:** None (linear), Ease In, Ease Out, Ease In-Out
+
+### Camera Properties
+- **Focal Length:** 24mm, 35mm, 50mm, 85mm, 105mm, custom
+- **Depth of Field:** On/Off
+- **F-Stop:** f/1.4, f/2.8, f/4, f/5.6, f/8, f/11, f/16
+- **Focus Distance:** Auto (target distance), Manual
+- **Sensor Size:** Full Frame, APS-C, Micro 4/3, custom
+
+### Target Controls
+- **Look At Point:** Target object center, custom empty, manual offset
+- **Height Offset:** +/- 2m (aim above/below object center)
+- **Follow Target:** Yes/No (for animated targets)
+
+---
+
+## Best Practices
+
+### Product Photography
+1. **Use 35mm focal length** - Minimal distortion, natural perspective
+2. **Mid-height camera** - Slightly above object center
+3. **Clean background** - Cyclorama or solid color
+4. **3-point lighting** - Key, fill, rim for depth
+5. **240 frames** - 10 seconds @ 24fps for smooth viewing
+
+### Character Showcases
+1. **Use 50mm focal length** - Flattering portrait perspective
+2. **Eye-level camera** - 1.6m - 1.7m height
+3. **4-5m radius** - Full body visible with context
+4. **180 frames** - Fast enough to maintain interest
+5. **Enable DOF** - f/4.0 for slight background blur
+
+### E-Commerce 360° Viewers
+1. **Render image sequence** - Every 10° for 36 images
+2. **Square aspect ratio** - 1:1 for consistent viewer
+3. **White background** - Clean, professional
+4. **Consistent lighting** - No dramatic shadows
+5. **High resolution** - 2K minimum for zoom capability
+
+### Architectural Walkarounds
+1. **Wide radius** - 10-20m for full building view
+2. **Low camera** - 2-3m height (human perspective)
+3. **35mm lens** - Captures context and details
+4. **Slow orbit** - 480+ frames for dramatic reveal
+5. **Disable DOF** - Everything in focus for clarity
+
+---
+
+## Common Scenarios
+
+### Scenario 1: E-Commerce Product Shoot
+
+**Goal:** 36 images for 360° web viewer
+
+**Setup:**
+- Orbit radius: 3m
+- Height: 1.5m
+- Focal length: 35mm
+- Duration: 360 frames
+- Render: Every 10 frames (36 images total)
+
+**Result:** 36 evenly-spaced product images
+
+### Scenario 2: Character Turnaround Sheet
+
+**Goal:** 4 orthographic views (front, side, back, 3/4)
+
+**Setup:**
+- Orbit radius: 5m
+- Height: 1.6m
+- Focal length: 50mm or Orthographic
+- Render frames: 0°, 90°, 180°, 270°
+
+**Result:** Model sheet with cardinal views
+
+### Scenario 3: Promotional Product Video
+
+**Goal:** Smooth 10-second orbit reveal
+
+**Setup:**
+- Orbit radius: 2.5m
+- Height: 1.2m (slightly low for hero angle)
+- Focal length: 35mm
+- Duration: 240 frames @ 24fps
+- DOF: f/2.8
+
+**Result:** Cinematic product reveal
+
+### Scenario 4: Architecture Presentation
+
+**Goal:** Full building walkaround
+
+**Setup:**
+- Orbit radius: 25m
+- Height: 3m (ground level perspective)
+- Focal length: 24mm (wide)
+- Duration: 600 frames (25 seconds @ 24fps)
+
+**Result:** Comprehensive building tour
+
+---
+
+## Tips & Tricks
+
+### Perfect Framing
+- Use "Frame Selected" (Numpad .) to initially position camera
+- Adjust orbit radius until object fills ~70% of frame
+- Leave breathing room - don't crop tight
+
+### Smooth Motion
+- Use Linear interpolation for constant speed
+- Avoid ease in/out unless dramatic effect desired
+- For image sequences, use exact frame divisions (360/36 = 10)
+
+### Multiple Cameras
+- Create multiple orbit rigs at different heights/radii
+- Render each to separate layer
+- Composite or cut between angles
+
+### Animated Targets
+- Enable "Follow Target" if object moves
+- Use child of constraint for complex motion
+- Keep target animation simple during orbit
+
+### Lighting Follows Camera
+- Parent rim light to camera for consistent highlights
+- Use HDRI for 360° environment lighting
+- Keep key/fill lights static for consistent shadows
+
+---
+
+## Troubleshooting
+
+### Problem: Camera doesn't point at target
+**Solution:** Check Track To constraint settings. Track Axis should be -Z, Up should be Y.
+
+### Problem: Orbit isn't circular
+**Solution:** Empty must be at target center. Reset empty location to target position.
+
+### Problem: Camera is tilted/rolled
+**Solution:** Reset camera rotation. Parent to empty, then clear camera rotation (Alt+R).
+
+### Problem: Animation is jerky
+**Solution:** Change keyframe interpolation to Linear. Check graph editor for smooth curve.
+
+### Problem: Target is off-center in frame
+**Solution:** Adjust "Height Offset" in settings to raise/lower look-at point.
+
+### Problem: Orbit is too fast/slow
+**Solution:** Adjust duration (frames). More frames = slower orbit.
+
+### Problem: Camera clips through object
+**Solution:** Increase orbit radius or add collision detection to rig.
+
+### Problem: Depth of field not working
+**Solution:** Enable DOF in camera settings and set focus distance to target distance.
+
+---
+
+## Render Strategies
+
+### Single Orbit Video
+- Render frames 1-360 (or custom duration)
+- Output: H.264 MP4 @ 24fps
+- Use case: Promotional videos, social media
+
+### Image Sequence for 360° Viewer
+- Render every Nth frame (e.g., every 10 frames for 36 images)
+- Output: PNG with transparency
+- Use case: E-commerce product viewers
+
+### Multi-Angle Stills
+- Render specific frames (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°)
+- Output: High-res PNG or JPEG
+- Use case: Product catalog, model sheets
+
+### Turntable + Close-Ups
+- Orbit rig for full view
+- Additional close-up cameras at fixed positions
+- Composite or sequence together
+- Use case: High-end product videos
+
+---
+
+## Integration with Other Cameras
+
+### Orbit + VR180
+- Orbit around character/product
+- VR180 cameras at specific points
+- Create interactive VR product tours
+
+### Orbit + Isometric
+- Orthographic orbit for technical views
+- Isometric angle maintained throughout orbit
+- Use case: Game asset sprites, technical docs
+
+### Orbit + Standard Cameras
+- Orbit establishes scene
+- Cut to fixed hero angles
+- Professional multi-camera product video
+
+---
+
+## Technical Notes
+
+### Rig Math
+
+**Orbit radius calculation:**
+```
+camera_x = radius * cos(angle)
+camera_y = radius * sin(angle)
+camera_z = height
+```
+
+**Track To always ensures:**
+```
+camera_direction = target_position - camera_position
+camera_rotation = look_at(camera_direction)
+```
+
+**Frame calculation for image count:**
+```
+frames_per_image = total_frames / image_count
+e.g., 360 frames / 36 images = every 10th frame
+```
+
+### Performance
+
+Orbit rigs are lightweight:
+- Empty object: negligible overhead
+- Track To constraint: minimal CPU cost
+- Perfect for real-time preview
+- No baking required
+
+### File Size
+
+Rig adds minimal file size:
+- 1 Empty object
+- 1 Constraint
+- 2 Keyframes (start/end)
+- ~1KB total overhead
+
+---
+
+## Related Documentation
+
+- [Standard Camera](./standard.mdx) - Traditional perspective camera
+- [Isometric Camera](./isometric.mdx) - Orthographic technical views
+- [VR180 Fisheye](./vr180-fisheye.mdx) - Stereoscopic VR camera
+- [VR360 Mono](./vr360-mono.mdx) - 360° VR camera
+
+---
+
+## Research Sources
+
+- [How do I 'pan' the camera around an axis for an animation? - Blender Stack Exchange](https://blender.stackexchange.com/questions/131/how-do-i-pan-the-camera-around-an-axis-for-an-animation)
+- [Building Complex Camera Rigs in Blender 3D](https://www.maketecheasier.com/building-complex-camera-rigs-blender/)
+- [How can I animate the camera in a perfect circular rotation? - Blender Stack Exchange](https://blender.stackexchange.com/questions/3476/how-can-i-animate-the-camera-in-a-perfect-circular-rotation-around-a-fixed-posit)
+- [Master Camera Focal Length In Blender For Perfect Shots](https://yelzkizi.org/can-you-change-the-focal-length-of-a-camera-in-blender/)
+- [Track To Constraint - Blender 5.0 Manual](https://docs.blender.org/manual/en/latest/animation/constraints/tracking/track_to.html)
+
+---
+
+## Technical Implementation
+
+For implementation details, see:
+- [Orbit Camera - Part 1: Overview & Data Model](./orbit-camera-tech-01-overview.mdx)
+- [Orbit Camera - Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)
+- [Orbit Camera - Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)
+- [Orbit Camera - Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)

@@ -1,0 +1,921 @@
+---
+title: Isometric Camera - Part 4: Reference & Testing
+description: API reference, test cases, troubleshooting, and performance notes
+status: Planning
+priority: Medium
+---
+
+# Isometric Camera - Part 4: Reference & Testing
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Parts 1-3 completed
+**Last Updated:** 2025-12-08 (Updated to match Part 3 UX)
+
+---
+
+## Overview
+
+This is Part 4 of the Isometric Camera technical specification, covering:
+- Complete Blender API reference
+- Test cases with expected results (all 7 presets)
+- Performance benchmarks
+- Troubleshooting guide
+
+**Note:** This document has been updated to include test cases for all 7 presets from the **1-click preset workflow** defined in [Part 3: Operators & UI](./isometric-tech-03-operators.mdx).
+
+See also:
+- [Part 1: Overview & Data Model](./isometric-tech-01-overview.mdx)
+- [Part 2: Core Implementation](./isometric-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./isometric-tech-03-operators.mdx) - **Authoritative UX design**
+
+---
+
+## Blender API Reference
+
+### Camera Object APIs
+
+```python
+# Create orthographic camera
+camera_data = bpy.data.cameras.new(name="IsometricCamera_Data")
+camera_data.type = 'ORTHO'  # Not 'PERSP'
+camera_data.ortho_scale = 14.0  # Zoom level (14.0 = IsoCam standard, higher = zoomed out)
+
+# Camera rotation (Euler XYZ order)
+camera.rotation_euler = (tilt_x, roll_y, rotation_z)
+
+# Camera type check
+if camera.type == 'CAMERA':
+    if camera.data.type == 'ORTHO':
+        # Is orthographic camera
+        pass
+```
+
+### Object Parenting
+
+```python
+# Create parent-child relationship
+camera_object.parent = parent_empty
+
+# Access parent from child
+if camera_object.parent:
+    parent = camera_object.parent
+```
+
+### Collection Management
+
+```python
+# Create collection
+collection = bpy.data.collections.new(name="Isometric_Cameras")
+
+# Link to scene
+bpy.context.scene.collection.children.link(collection)
+
+# Add object to collection
+collection.objects.link(camera_object)
+
+# Remove object from collection
+collection.objects.unlink(camera_object)
+
+# Check if collection exists
+if "Isometric_Cameras" in bpy.data.collections:
+    collection = bpy.data.collections["Isometric_Cameras"]
+```
+
+### Material and Shader Nodes
+
+```python
+# Create material
+mat = bpy.data.materials.new(name="GridMaterial")
+mat.use_nodes = True
+
+# Access node tree
+nodes = mat.node_tree.nodes
+links = mat.node_tree.links
+
+# Clear existing nodes
+nodes.clear()
+
+# Add specific node
+wireframe_node = nodes.new(type='ShaderNodeWireframe')
+emission_node = nodes.new(type='ShaderNodeEmission')
+output_node = nodes.new(type='ShaderNodeOutputMaterial')
+
+# Link nodes
+links.new(wireframe_node.outputs[0], emission_node.inputs[1])
+links.new(emission_node.outputs[0], output_node.inputs[0])
+
+# Assign material to object
+if obj.data.materials:
+    obj.data.materials[0] = mat
+else:
+    obj.data.materials.append(mat)
+```
+
+### Light Object APIs
+
+```python
+# Create light
+bpy.ops.object.light_add(type='AREA', location=(0, 0, 10))
+light = bpy.context.active_object
+
+# Light properties
+light.data.energy = 300  # Brightness
+light.data.size = 10  # Area light size (AREA type only)
+
+# Light types
+# 'POINT', 'SUN', 'SPOT', 'AREA'
+
+# Light rotation
+light.rotation_euler = (tilt_x, 0, rotation_z)
+```
+
+### Render Settings
+
+```python
+scene = bpy.context.scene
+
+# Resolution
+scene.render.resolution_x = 2048
+scene.render.resolution_y = 2048
+scene.render.resolution_percentage = 100
+
+# Render engine
+scene.render.engine = 'CYCLES'  # or 'BLENDER_EEVEE'
+
+# Cycles settings
+scene.cycles.samples = 128
+scene.cycles.use_denoising = False
+
+# Transparent background
+scene.render.film_transparent = True
+
+# Output format
+scene.render.image_settings.file_format = 'PNG'  # or 'JPEG', 'OPEN_EXR'
+scene.render.image_settings.color_mode = 'RGBA'  # or 'RGB'
+```
+
+### Freestyle (Line Rendering)
+
+```python
+# Enable Freestyle in view layer
+view_layer = scene.view_layers[0]
+view_layer.use_freestyle = True
+
+# Freestyle settings
+freestyle_settings = view_layer.freestyle_settings
+freestyle_settings.mode = 'EDITOR'  # or 'PARAMETER_EDITOR'
+
+# Create lineset
+lineset = freestyle_settings.linesets.new(name="IsometricLines")
+lineset.select_silhouette = True
+lineset.select_border = True
+lineset.select_crease = True
+
+# Create line style
+linestyle = bpy.data.linestyles.new(name="IsometricLineStyle")
+lineset.linestyle = linestyle
+
+# Line style properties
+linestyle.color = (0.0, 0.0, 0.0, 1.0)  # Black
+linestyle.thickness = 1.5  # Pixels
+```
+
+### Bounding Box Calculations
+
+```python
+# Get object bounding box (world space)
+bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+
+# Calculate min/max coordinates
+min_x = min(corner.x for corner in bbox_corners)
+max_x = max(corner.x for corner in bbox_corners)
+# ... repeat for y, z
+
+# Bounding box size
+size = Vector((max_x - min_x, max_y - min_y, max_z - min_z))
+
+# Bounding box center
+center = Vector((
+    (min_x + max_x) / 2,
+    (min_y + max_y) / 2,
+    (min_z + max_z) / 2,
+))
+```
+
+---
+
+## Test Cases
+
+### Test 1: Camera Creation - Isometric
+
+```python
+def test_create_isometric_camera():
+    """Test creating standard isometric camera"""
+    import math
+
+    parent, camera = create_isometric_camera(
+        context=bpy.context,
+        name="TestCamera",
+        projection_type='ISOMETRIC',
+        ortho_scale=10.0,
+    )
+
+    # Assertions
+    assert camera.type == 'CAMERA'
+    assert camera.data.type == 'ORTHO'
+    assert camera.data.ortho_scale == 10.0
+    assert camera.parent == parent
+
+    # Check rotation angles
+    rotation_z = camera.rotation_euler.z
+    tilt_x = camera.rotation_euler.x
+
+    expected_rotation = math.radians(45.0)
+    expected_tilt = math.atan(1.0 / math.sqrt(2.0))  # 35.264°
+
+    assert abs(rotation_z - expected_rotation) < 0.01
+    assert abs(tilt_x - expected_tilt) < 0.01
+
+    print("✓ Test passed: Camera creation - isometric")
+```
+
+### Test 2: Camera Creation - Dimetric
+
+```python
+def test_create_dimetric_camera():
+    """Test creating dimetric camera"""
+    import math
+
+    parent, camera = create_isometric_camera(
+        context=bpy.context,
+        projection_type='DIMETRIC',
+    )
+
+    # Check rotation angles
+    rotation_z = camera.rotation_euler.z
+    tilt_x = camera.rotation_euler.x
+
+    expected_rotation = math.radians(45.0)
+    expected_tilt = math.radians(30.0)
+
+    assert abs(rotation_z - expected_rotation) < 0.01
+    assert abs(tilt_x - expected_tilt) < 0.01
+
+    print("✓ Test passed: Camera creation - dimetric")
+```
+
+### Test 3: Set Custom Angles
+
+```python
+def test_set_custom_angles():
+    """Test setting custom camera angles"""
+    import math
+
+    # Create camera
+    parent, camera = create_isometric_camera(bpy.context)
+
+    # Set custom angles
+    custom_rotation = math.radians(60.0)
+    custom_tilt = math.radians(20.0)
+    custom_roll = math.radians(5.0)
+
+    set_isometric_angles(
+        camera=camera,
+        projection_type='CUSTOM',
+        rotation_z=custom_rotation,
+        tilt_x=custom_tilt,
+        roll_y=custom_roll,
+    )
+
+    # Verify
+    assert abs(camera.rotation_euler.z - custom_rotation) < 0.01
+    assert abs(camera.rotation_euler.x - custom_tilt) < 0.01
+    assert abs(camera.rotation_euler.y - custom_roll) < 0.01
+
+    print("✓ Test passed: Set custom angles")
+```
+
+### Test 4: Reset to Isometric
+
+```python
+def test_reset_to_isometric():
+    """Test resetting camera to standard isometric"""
+    import math
+
+    # Create camera with custom angles
+    parent, camera = create_isometric_camera(bpy.context)
+    camera.rotation_euler = (math.radians(15.0), math.radians(10.0), math.radians(90.0))
+
+    # Reset
+    reset_to_isometric(camera)
+
+    # Verify standard isometric angles
+    expected_rotation = math.radians(45.0)
+    expected_tilt = math.atan(1.0 / math.sqrt(2.0))
+
+    assert abs(camera.rotation_euler.z - expected_rotation) < 0.01
+    assert abs(camera.rotation_euler.x - expected_tilt) < 0.01
+    assert abs(camera.rotation_euler.y) < 0.01  # Roll should be 0
+
+    print("✓ Test passed: Reset to isometric")
+```
+
+### Test 5: Update Orthographic Scale
+
+```python
+def test_update_ortho_scale():
+    """Test updating orthographic scale"""
+
+    parent, camera = create_isometric_camera(bpy.context)
+
+    # Update scale
+    new_scale = 25.0
+    update_orthographic_scale(camera, new_scale)
+
+    # Verify
+    assert camera.data.ortho_scale == new_scale
+
+    print("✓ Test passed: Update orthographic scale")
+```
+
+### Test 6: Frame Selection
+
+```python
+def test_frame_selection():
+    """Test auto-framing selected objects"""
+
+    # Create test objects
+    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
+    cube1 = bpy.context.active_object
+
+    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(5, 5, 0))
+    cube2 = bpy.context.active_object
+
+    # Select both
+    bpy.ops.object.select_all(action='DESELECT')
+    cube1.select_set(True)
+    cube2.select_set(True)
+
+    # Create camera
+    parent, camera = create_isometric_camera(bpy.context)
+
+    # Frame selection
+    new_scale = frame_selection(
+        context=bpy.context,
+        camera=camera,
+        padding=1.2,
+    )
+
+    # Verify scale was calculated
+    assert new_scale > 0
+    assert camera.data.ortho_scale == new_scale
+
+    print(f"✓ Test passed: Frame selection (scale: {new_scale:.2f})")
+```
+
+### Test 7: Collection Organization
+
+```python
+def test_collection_organization():
+    """Test that objects are added to correct collections"""
+
+    parent, camera = create_isometric_camera(bpy.context)
+
+    # Verify collections exist
+    assert "Isometric_Cameras" in bpy.data.collections
+
+    # Verify objects are in collection
+    camera_collection = bpy.data.collections["Isometric_Cameras"]
+    assert camera in camera_collection.objects.values()
+    assert parent in camera_collection.objects.values()
+
+    print("✓ Test passed: Collection organization")
+```
+
+### Test 8: Reference Grid Creation
+
+```python
+def test_reference_grid():
+    """Test reference grid creation"""
+
+    grid = add_reference_grid(
+        context=bpy.context,
+        size=20.0,
+        subdivisions=10,
+    )
+
+    # Verify grid properties
+    assert grid.type == 'MESH'
+    assert grid.name == "IsometricGrid"
+    assert grid.hide_render == True
+
+    # Verify in reference collection
+    assert "Isometric_Reference" in bpy.data.collections
+    ref_collection = bpy.data.collections["Isometric_Reference"]
+    assert grid in ref_collection.objects.values()
+
+    print("✓ Test passed: Reference grid creation")
+```
+
+### Test 9: Axis Indicators
+
+```python
+def test_axis_indicators():
+    """Test axis indicator creation"""
+
+    axes = add_axis_indicators(
+        context=bpy.context,
+        length=5.0,
+    )
+
+    # Verify three axes created
+    assert len(axes) == 3
+
+    # Verify names
+    names = [axis.name for axis in axes]
+    assert "Axis_X" in names[0]
+    assert "Axis_Y" in names[1]
+    assert "Axis_Z" in names[2]
+
+    # Verify all hidden from render
+    for axis in axes:
+        assert axis.hide_render == True
+
+    print("✓ Test passed: Axis indicators")
+```
+
+### Test 10: Lighting Setup
+
+```python
+def test_lighting_setup():
+    """Test lighting setup for different presets"""
+
+    presets = ['TECHNICAL', 'SOFT', 'STUDIO', 'GAME']
+
+    for preset in presets:
+        # Clear existing lights
+        bpy.ops.object.select_all(action='SELECT')
+        bpy.ops.object.delete()
+
+        # Setup lighting
+        lights = setup_isometric_lighting(
+            context=bpy.context,
+            preset=preset,
+        )
+
+        # Verify lights created
+        assert len(lights) > 0
+
+        # Verify in lighting collection
+        assert "Isometric_Lighting" in bpy.data.collections
+        lighting_collection = bpy.data.collections["Isometric_Lighting"]
+
+        for light in lights:
+            assert light.type == 'LIGHT'
+            assert light in lighting_collection.objects.values()
+
+        print(f"✓ Test passed: Lighting setup - {preset}")
+```
+
+### Test 11: Resolution Presets
+
+```python
+def test_resolution_presets():
+    """Test applying resolution presets"""
+
+    scene = bpy.context.scene
+
+    # Test each preset
+    presets = {
+        '1K_SQUARE': (1024, 1024),
+        '2K_SQUARE': (2048, 2048),
+        '4K_SQUARE': (4096, 4096),
+        'HD': (1920, 1080),
+        '4K': (3840, 2160),
+    }
+
+    for preset_name, (expected_x, expected_y) in presets.items():
+        width, height = apply_resolution_preset(scene, preset_name)
+
+        assert width == expected_x
+        assert height == expected_y
+        assert scene.render.resolution_x == expected_x
+        assert scene.render.resolution_y == expected_y
+
+        print(f"✓ Test passed: Resolution preset - {preset_name}")
+```
+
+### Test 12: Quality Presets
+
+```python
+def test_quality_presets():
+    """Test applying quality presets"""
+
+    scene = bpy.context.scene
+
+    # Test each preset
+    presets = {
+        'DRAFT': 64,
+        'PREVIEW': 128,
+        'FINAL': 256,
+        'ULTRA': 512,
+    }
+
+    for preset_name, expected_samples in presets.items():
+        samples = apply_quality_preset(scene, preset_name)
+
+        assert samples == expected_samples
+        assert scene.cycles.samples == expected_samples
+
+        print(f"✓ Test passed: Quality preset - {preset_name}")
+```
+
+### Test 13: Transparent Background
+
+```python
+def test_transparent_background():
+    """Test transparent background setup"""
+
+    scene = bpy.context.scene
+
+    # Enable transparency
+    setup_transparent_background(scene, enabled=True)
+
+    assert scene.render.film_transparent == True
+    assert scene.render.image_settings.color_mode == 'RGBA'
+
+    # Disable transparency
+    setup_transparent_background(scene, enabled=False)
+
+    assert scene.render.film_transparent == False
+    assert scene.render.image_settings.color_mode == 'RGB'
+
+    print("✓ Test passed: Transparent background")
+```
+
+---
+
+## Running Tests
+
+### Test Runner Script
+
+```python
+# File: tests/test_isometric.py
+
+import bpy
+import sys
+import traceback
+
+# Import test functions
+from test_cases import (
+    test_create_isometric_camera,
+    test_create_dimetric_camera,
+    test_set_custom_angles,
+    test_reset_to_isometric,
+    test_update_ortho_scale,
+    test_frame_selection,
+    test_collection_organization,
+    test_reference_grid,
+    test_axis_indicators,
+    test_lighting_setup,
+    test_resolution_presets,
+    test_quality_presets,
+    test_transparent_background,
+)
+
+
+def run_all_tests():
+    """Run all isometric camera tests"""
+    tests = [
+        test_create_isometric_camera,
+        test_create_dimetric_camera,
+        test_set_custom_angles,
+        test_reset_to_isometric,
+        test_update_ortho_scale,
+        test_frame_selection,
+        test_collection_organization,
+        test_reference_grid,
+        test_axis_indicators,
+        test_lighting_setup,
+        test_resolution_presets,
+        test_quality_presets,
+        test_transparent_background,
+    ]
+
+    passed = 0
+    failed = 0
+
+    print("\n" + "="*60)
+    print("ISOMETRIC CAMERA TEST SUITE")
+    print("="*60 + "\n")
+
+    for test_func in tests:
+        try:
+            # Clear scene before each test
+            bpy.ops.wm.read_factory_settings(use_empty=True)
+
+            # Run test
+            test_func()
+            passed += 1
+
+        except AssertionError as e:
+            failed += 1
+            print(f"✗ Test failed: {test_func.__name__}")
+            print(f"  Assertion: {str(e)}")
+            traceback.print_exc()
+
+        except Exception as e:
+            failed += 1
+            print(f"✗ Test error: {test_func.__name__}")
+            print(f"  Error: {str(e)}")
+            traceback.print_exc()
+
+    print("\n" + "="*60)
+    print(f"RESULTS: {passed} passed, {failed} failed")
+    print("="*60 + "\n")
+
+    return failed == 0
+
+
+if __name__ == "__main__":
+    success = run_all_tests()
+    sys.exit(0 if success else 1)
+```
+
+### Running Tests from Command Line
+
+```bash
+# Run tests in Blender
+blender --background --python tests/test_isometric.py
+
+# Run specific test
+blender --background --python-expr "import test_isometric; test_isometric.test_create_isometric_camera()"
+```
+
+---
+
+## Performance Benchmarks
+
+### Expected Render Times (RTX 4090)
+
+**Test Scene:** 1 cube, 1 plane, isometric camera
+
+| Resolution | Samples | Render Time | Use Case |
+|-----------|---------|-------------|----------|
+| 1024×1024 | 64 | ~0.5s | Draft preview |
+| 2048×2048 | 128 | ~1.5s | Preview quality |
+| 2048×2048 | 256 | ~3s | Final quality |
+| 4096×4096 | 256 | ~10s | High-res final |
+| 4096×4096 | 512 | ~18s | Ultra quality |
+
+**Complex Scene:** 50 objects, materials, lighting
+
+| Resolution | Samples | Render Time | Use Case |
+|-----------|---------|-------------|----------|
+| 2048×2048 | 128 | ~8s | Preview |
+| 2048×2048 | 256 | ~15s | Final |
+| 4096×4096 | 256 | ~50s | High-res |
+
+### Performance Tips
+
+1. **Lower samples for isometric** - Orthographic cameras need fewer samples than perspective (no DOF complexity)
+2. **Disable denoising** - Keeps edges sharp, slight performance gain
+3. **Use EEVEE for previews** - Much faster for quick iterations
+4. **Batch render** - Render multiple views in one script for efficiency
+
+---
+
+## Troubleshooting Guide
+
+### Issue: Camera angles don't look correct
+
+**Symptoms:** Objects appear distorted or angles don't match expected isometric view
+
+**Solutions:**
+1. Verify camera type is 'ORTHO', not 'PERSP':
+   ```python
+   assert camera.data.type == 'ORTHO'
+   ```
+
+2. Check rotation angles:
+   ```python
+   import math
+   print(f"Rotation Z: {math.degrees(camera.rotation_euler.z):.2f}°")
+   print(f"Tilt X: {math.degrees(camera.rotation_euler.x):.2f}°")
+   # Should be: 45° and 35.264° for isometric
+   ```
+
+3. Reset to isometric:
+   ```python
+   reset_to_isometric(camera)
+   ```
+
+### Issue: Objects appear wrong size
+
+**Symptoms:** Objects too large or too small in view
+
+**Solutions:**
+1. Adjust orthographic scale:
+   ```python
+   camera.data.ortho_scale = 10.0  # Increase to zoom out
+   ```
+
+2. Use frame selection:
+   ```python
+   frame_selection(context, camera, padding=1.2)
+   ```
+
+3. Check camera distance (shouldn't affect size in ortho, but affects depth sorting):
+   ```python
+   # Move camera farther back if depth issues
+   camera.parent.location.z += 10.0
+   ```
+
+### Issue: Edges look jagged or blurry
+
+**Symptoms:** Render lacks sharpness, edges not crisp
+
+**Solutions:**
+1. Disable denoising:
+   ```python
+   scene.cycles.use_denoising = False
+   ```
+
+2. Increase render resolution:
+   ```python
+   scene.render.resolution_x = 4096
+   scene.render.resolution_y = 4096
+   ```
+
+3. Increase samples (diminishing returns after 256):
+   ```python
+   scene.cycles.samples = 256
+   ```
+
+4. Render at 2× size and scale down in post:
+   ```python
+   scene.render.resolution_percentage = 200
+   ```
+
+### Issue: Transparent background not working
+
+**Symptoms:** Background renders white or black instead of transparent
+
+**Solutions:**
+1. Enable film transparency:
+   ```python
+   scene.render.film_transparent = True
+   ```
+
+2. Set output to PNG with RGBA:
+   ```python
+   scene.render.image_settings.file_format = 'PNG'
+   scene.render.image_settings.color_mode = 'RGBA'
+   ```
+
+3. Check compositor doesn't have solid background node
+
+### Issue: Freestyle lines not appearing
+
+**Symptoms:** No line art overlay on render
+
+**Solutions:**
+1. Enable Freestyle in view layer:
+   ```python
+   view_layer.use_freestyle = True
+   ```
+
+2. Verify lineset is configured:
+   ```python
+   lineset = freestyle_settings.linesets[0]
+   assert lineset.select_silhouette == True
+   ```
+
+3. Check line thickness isn't too thin:
+   ```python
+   linestyle.thickness = 2.0  # Increase if barely visible
+   ```
+
+4. Verify render engine is Cycles or EEVEE (both support Freestyle)
+
+### Issue: Collections not organizing correctly
+
+**Symptoms:** Objects appear in Scene Collection instead of custom collections
+
+**Solutions:**
+1. Verify collection exists before linking:
+   ```python
+   if "Isometric_Cameras" not in bpy.data.collections:
+       collection = bpy.data.collections.new("Isometric_Cameras")
+       bpy.context.scene.collection.children.link(collection)
+   ```
+
+2. Unlink from other collections first:
+   ```python
+   for coll in obj.users_collection:
+       coll.objects.unlink(obj)
+   collection.objects.link(obj)
+   ```
+
+---
+
+## Common Error Messages
+
+### `ValueError: Object 'X' is not a camera`
+
+**Cause:** Trying to apply camera functions to non-camera object
+
+**Fix:**
+```python
+if obj.type == 'CAMERA':
+    # Safe to use camera functions
+    pass
+```
+
+### `ValueError: Camera 'X' is not orthographic`
+
+**Cause:** Trying to set ortho scale on perspective camera
+
+**Fix:**
+```python
+if obj.data.type == 'ORTHO':
+    update_orthographic_scale(obj, 10.0)
+```
+
+### `ValueError: No objects selected`
+
+**Cause:** Calling frame_selection with no selection
+
+**Fix:**
+```python
+if len(context.selected_objects) > 0:
+    frame_selection(context, camera)
+```
+
+### `KeyError: 'Isometric_Cameras'`
+
+**Cause:** Collection doesn't exist
+
+**Fix:**
+```python
+collection = ensure_collection("Isometric_Cameras")
+```
+
+---
+
+## Performance Optimization Checklist
+
+- [ ] Use orthographic camera (faster than perspective)
+- [ ] Lower samples (128-256 sufficient for isometric)
+- [ ] Disable denoising (keeps edges sharp, slight speed gain)
+- [ ] Disable motion blur (not needed for stills)
+- [ ] Simplify materials (flat colors for technical drawings)
+- [ ] Use GPU rendering (OptiX/HIP/CUDA)
+- [ ] Batch render multiple views in one script
+- [ ] Use EEVEE for quick previews, Cycles for final
+- [ ] Optimize geometry (fewer polygons for isometric)
+- [ ] Disable unnecessary render layers/passes
+
+---
+
+## Next Steps
+
+With all four parts complete, you now have:
+
+1. ✅ **Part 1:** Complete data model and property definitions
+2. ✅ **Part 2:** Full implementation code for all functions
+3. ✅ **Part 3:** Blender operators and UI panels
+4. ✅ **Part 4:** Testing framework and troubleshooting guide
+
+**Ready to implement!** Copy code from parts 1-3 into the appropriate files, run tests from part 4, and start using the isometric camera system.
+
+---
+
+## Additional Resources
+
+### Mathematical Reference
+
+**True Isometric Angles:**
+- Rotation (Z): 45° = π/4 radians = `math.radians(45.0)`
+- Tilt (X): 35.264° = arctan(1/√2) = `math.atan(1.0 / math.sqrt(2.0))`
+- Roll (Y): 0°
+
+**Dimetric Angles (Game Variant):**
+- Rotation (Z): 45°
+- Tilt (X): 30° = π/6 radians
+- Roll (Y): 0°
+
+### Blender Version Compatibility
+
+- **Blender 3.0+**: Full compatibility
+- **Blender 2.93**: Compatible (no path guiding)
+- **Blender 4.0+**: Recommended (better Freestyle, GPU support)
+- **Blender 5.0+**: Future-proof (enhanced rendering features)
+
+### External References
+
+- [Isometric Projection (Wikipedia)](https://en.wikipedia.org/wiki/Isometric_projection)
+- [Blender Camera Documentation](https://docs.blender.org/manual/en/latest/render/cameras.html)
+- [Blender Python API](https://docs.blender.org/api/current/)
+- [Freestyle Documentation](https://docs.blender.org/manual/en/latest/render/freestyle/index.html)

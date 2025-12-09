@@ -1,0 +1,463 @@
+---
+title: Orbit Camera - Part 5: Python Implementation Code
+description: Python operator implementations for preset-based workflow
+status: Planning
+priority: High
+---
+
+# Orbit Camera - Part 5: Python Implementation Code
+
+**See also:**
+- [← Part 1: Overview & Data Model](./orbit-camera-tech-01-overview.mdx)
+- [← Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)
+- [← Part 3: Operators & UI (UX Design)](./orbit-camera-tech-03-operators.mdx)
+- [← Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)
+
+---
+
+## Overview
+
+This document contains **copy-paste ready Python code** for all Orbit Camera operators.
+
+**NOTE:** The UX design in Part 3 may have evolved beyond this code. 
+This Part 5 contains the original operator implementations and should be updated to match the refined UX workflows in Part 3.
+
+---
+
+# Orbit Camera Rig - Part 3: Operators & UI
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/ui/`
+**Dependencies:** Part 1 (properties), Part 2 (core functions)
+
+---
+
+## Overview
+
+This is Part 3 of the Orbit Camera technical specification, covering:
+- Blender operator classes
+- UI panel layouts
+- Quick Create pattern integration
+
+See also:
+- [Part 1: Overview & Data Model](./orbit-camera-tech-01-overview.mdx)
+- [Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)
+- [Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)
+
+---
+
+## Operators
+
+### Quick Create Operator (Simplified UX)
+
+```python
+# File: addons/vr_production_toolkit/ui/operators.py
+
+import bpy
+from bpy.types import Operator
+from bpy.props import EnumProperty
+
+# Import core functions
+from ..camera_rigs import create_orbit_camera_rig, animate_orbit
+from ..scene_setup import add_reference_capsule, add_orbit_lighting, add_floor_plane
+
+
+class ORBIT_OT_QuickCreate(Operator):
+    """Quick create orbit camera with preset (one-click setup)"""
+    bl_idname = "orbit.quick_create"
+    bl_label = "Quick Create Orbit Camera"
+    bl_description = "One-click orbit camera creation with preset and auto-activate"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    preset: EnumProperty(
+        name="Preset",
+        description="Orbit camera preset",
+        items=[
+            ('PRODUCT', "Product Photography", "3m radius, 35mm lens, clean lighting"),
+            ('CHARACTER', "Character Showcase", "4m radius, 50mm lens, soft lighting"),
+            ('HERO', "Hero Shot", "2.5m radius, 24mm wide, dramatic low angle"),
+            ('DETAIL', "Detail Inspection", "1.5m radius, 85mm telephoto, close-up"),
+            ('ARCHITECTURAL', "Architectural", "15m radius, 35mm, building walkaround"),
+        ],
+        default='PRODUCT',
+    )
+
+    duration_preset: EnumProperty(
+        name="Duration",
+        description="Animation duration",
+        items=[
+            ('120', "120 Frames (5s)", "Quick 5-second orbit"),
+            ('240', "240 Frames (10s)", "Standard 10-second orbit"),
+            ('360', "360 Frames (15s)", "Slow 15-second orbit"),
+        ],
+        default='240',
+    )
+
+    def execute(self, context):
+        try:
+            # Preset configurations
+            presets = {
+                'PRODUCT': {
+                    'radius': 3.0,
+                    'height': 1.5,
+                    'focal': 35.0,
+                    'lighting': 'PRODUCT',
+                },
+                'CHARACTER': {
+                    'radius': 4.0,
+                    'height': 1.6,
+                    'focal': 50.0,
+                    'lighting': 'SOFT',
+                },
+                'HERO': {
+                    'radius': 2.5,
+                    'height': 0.5,
+                    'focal': 24.0,
+                    'lighting': 'DRAMATIC',
+                },
+                'DETAIL': {
+                    'radius': 1.5,
+                    'height': 0.0,
+                    'focal': 85.0,
+                    'lighting': 'PRODUCT',
+                },
+                'ARCHITECTURAL': {
+                    'radius': 15.0,
+                    'height': 2.0,
+                    'focal': 35.0,
+                    'lighting': 'SOFT',
+                },
+            }
+
+            config = presets[self.preset]
+
+            # Create orbit rig
+            pivot, camera, target = create_orbit_camera_rig(
+                context=context,
+                orbit_radius=config['radius'],
+                camera_height=config['height'],
+                focal_length=config['focal'],
+            )
+
+            # Add scene elements
+            add_reference_capsule(context, location=target.location)
+            add_orbit_lighting(context, preset=config['lighting'], target_location=target.location)
+            add_floor_plane(context, location=(target.location.x, target.location.y, 0.0))
+
+            # Animate orbit
+            duration = int(self.duration_preset)
+            animate_orbit(pivot, duration_frames=duration)
+
+            # Set timeline
+            context.scene.frame_start = 1
+            context.scene.frame_end = duration
+
+            # Auto-activate camera
+            context.scene.camera = camera
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            space.region_3d.view_perspective = 'CAMERA'
+                            break
+
+            self.report({'INFO'}, f"Orbit camera '{self.preset}' created and activated")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create orbit camera: {str(e)}")
+            return {'CANCELLED'}
+```
+
+---
+
+### Full Setup Operator
+
+```python
+class ORBIT_OT_CreateRig(Operator):
+    """Create orbit camera rig with full settings"""
+    bl_idname = "orbit.create_rig"
+    bl_label = "Create Orbit Camera Rig"
+    bl_description = "Create orbit camera with current settings"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        settings = context.scene.orbit_camera_settings
+
+        try:
+            # Import complete scene function
+            from ..camera_rigs import create_complete_orbit_scene
+
+            # Create complete scene
+            scene_objects = create_complete_orbit_scene(context, settings)
+
+            self.report({'INFO'}, f"Orbit camera '{scene_objects['camera'].name}' created")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create orbit rig: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ORBIT_OT_UpdateAnimation(Operator):
+    """Update orbit animation keyframes"""
+    bl_idname = "orbit.update_animation"
+    bl_label = "Update Animation"
+    bl_description = "Update orbit animation with current settings"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        settings = context.scene.orbit_camera_settings
+        obj = context.active_object
+
+        # Find pivot empty
+        pivot = obj if obj.name.endswith("_Pivot") else obj.parent
+
+        if pivot is None:
+            self.report({'ERROR'}, "Select orbit camera or pivot empty")
+            return {'CANCELLED'}
+
+        try:
+            duration = settings.duration_frames if settings.duration_preset == 'CUSTOM' else int(settings.duration_preset)
+            animate_orbit(
+                pivot,
+                start_angle=settings.start_angle,
+                end_angle=settings.end_angle,
+                duration_frames=duration,
+                direction=settings.direction,
+                easing=settings.easing,
+            )
+
+            context.scene.frame_end = duration
+            self.report({'INFO'}, "Animation updated")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to update animation: {str(e)}")
+            return {'CANCELLED'}
+```
+
+---
+
+## Operator Registration
+
+```python
+# File: addons/vr_production_toolkit/ui/operators.py
+
+classes = (
+    ORBIT_OT_QuickCreate,
+    ORBIT_OT_CreateRig,
+    ORBIT_OT_UpdateAnimation,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+## UI Panels
+
+### Quick Create Panel
+
+```python
+# File: addons/vr_production_toolkit/ui/panels.py
+
+import bpy
+from bpy.types import Panel
+
+
+class ORBIT_PT_QuickCreate(Panel):
+    """Quick create panel with preset buttons"""
+    bl_label = "Orbit Camera - Quick Create"
+    bl_idname = "ORBIT_PT_quick_create"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_order = 4
+
+    def draw(self, context):
+        layout = self.layout
+
+        # Product visualization
+        box = layout.box()
+        box.label(text="Product Visualization", icon='MESH_CUBE')
+        col = box.column(align=True)
+
+        op = col.operator("orbit.quick_create", text="Product Photography")
+        op.preset = 'PRODUCT'
+        op.duration_preset = '240'
+
+        op = col.operator("orbit.quick_create", text="Detail Close-Up")
+        op.preset = 'DETAIL'
+        op.duration_preset = '240'
+
+        # Character & Animation
+        box = layout.box()
+        box.label(text="Character & Animation", icon='ARMATURE_DATA')
+        col = box.column(align=True)
+
+        op = col.operator("orbit.quick_create", text="Character Showcase")
+        op.preset = 'CHARACTER'
+        op.duration_preset = '180'
+
+        op = col.operator("orbit.quick_create", text="Hero Shot")
+        op.preset = 'HERO'
+        op.duration_preset = '120'
+
+        # Architectural
+        box = layout.box()
+        box.label(text="Architectural", icon='HOME')
+
+        op = box.operator("orbit.quick_create", text="Building Walkaround")
+        op.preset = 'ARCHITECTURAL'
+        op.duration_preset = '360'
+```
+
+---
+
+### Advanced Settings Panel
+
+```python
+
+
+class ORBIT_PT_MainPanel(Panel):
+    """Main orbit camera settings panel"""
+    bl_label = "Orbit Camera - Advanced"
+    bl_idname = "ORBIT_PT_main_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_parent_id = "ORBIT_PT_quick_create"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.orbit_camera_settings
+
+        # Orbit parameters
+        box = layout.box()
+        box.label(text="Orbit Parameters", icon='CURVE_BEZCIRCLE')
+
+        col = box.column(align=True)
+        col.prop(settings, "orbit_radius")
+        col.prop(settings, "camera_height")
+        col.prop(settings, "vertical_angle")
+
+        # Animation
+        box = layout.box()
+        box.label(text="Animation", icon='ANIM')
+
+        col = box.column(align=True)
+        col.prop(settings, "duration_preset")
+        if settings.duration_preset == 'CUSTOM':
+            col.prop(settings, "duration_frames")
+
+        col.separator()
+        col.prop(settings, "direction")
+        col.prop(settings, "easing")
+
+        # Camera settings
+        box = layout.box()
+        box.label(text="Camera", icon='CAMERA_DATA')
+
+        col = box.column(align=True)
+        col.prop(settings, "focal_length_preset")
+        if settings.focal_length_preset == 'CUSTOM':
+            col.prop(settings, "focal_length")
+
+        col.separator()
+        col.prop(settings, "use_dof")
+        if settings.use_dof:
+            col.prop(settings, "f_stop")
+
+        # Scene setup
+        box = layout.box()
+        box.label(text="Scene Setup", icon='SCENE_DATA')
+
+        col = box.column(align=True)
+        col.prop(settings, "add_reference_capsule")
+        col.prop(settings, "add_lighting")
+        if settings.add_lighting:
+            col.prop(settings, "lighting_preset")
+        col.prop(settings, "add_floor")
+        col.prop(settings, "auto_set_timeline")
+
+        # Create button
+        layout.separator()
+        col = layout.column(align=True)
+        col.scale_y = 1.3
+        col.operator("orbit.create_rig", icon='ADD')
+
+        # Update animation button (if orbit exists)
+        if context.active_object:
+            col.operator("orbit.update_animation", icon='FILE_REFRESH')
+
+
+# Panel registration
+classes = (
+    ORBIT_PT_QuickCreate,
+    ORBIT_PT_MainPanel,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+## Panel Registration
+
+```python
+# File: addons/vr_production_toolkit/ui/panels.py
+
+classes = (
+    ORBIT_PT_QuickCreate,
+    ORBIT_PT_MainPanel,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+## Next Steps
+
+Continue to:
+- **[Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)** - Complete API reference, test cases, and troubleshooting
+
+---
+
+**See also:**
+- [← Part 3: Operators & UI (UX Design)](${camera}-tech-03-operators.mdx) - For refined UX workflows
+
+---
+
+**Status:** Planning - Needs Update to Match Part 3 UX
+**Last Updated:** 2025-12-08

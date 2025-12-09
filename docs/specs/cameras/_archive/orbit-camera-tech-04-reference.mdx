@@ -1,0 +1,235 @@
+---
+title: Orbit Camera Rig - Part 4: Reference & Testing
+description: API reference, test cases, troubleshooting, and performance notes
+status: Planning
+priority: High
+---
+
+# Orbit Camera Rig - Part 4: Reference & Testing
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Parts 1-3 completed
+
+---
+
+## Overview
+
+This is Part 4 of the Orbit Camera technical specification, covering:
+- Complete Blender API reference
+- Test cases with expected results
+- Performance benchmarks
+- Troubleshooting guide
+
+See also:
+- [Part 1: Overview & Data Model](./orbit-camera-tech-01-overview.mdx)
+- [Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)
+
+---
+
+## Blender API Reference
+
+### Key APIs Used
+
+```python
+# Empty object creation
+empty = bpy.data.objects.new(name="OrbitPivot", object_data=None)
+empty.empty_display_type = 'PLAIN_AXES'
+empty.location = (0, 0, 0)
+
+# Empty rotation animation
+empty.rotation_euler[2] = 0.0
+empty.keyframe_insert(data_path="rotation_euler", frame=1, index=2)
+empty.rotation_euler[2] = math.tau  # 360°
+empty.keyframe_insert(data_path="rotation_euler", frame=240, index=2)
+
+# Track To constraint
+constraint = camera.constraints.new(type='TRACK_TO')
+constraint.target = target_empty
+constraint.track_axis = 'TRACK_NEGATIVE_Z'
+constraint.up_axis = 'UP_Y'
+
+# F-Curve interpolation
+for fcurve in obj.animation_data.action.fcurves:
+    if fcurve.data_path == "rotation_euler":
+        for keyframe in fcurve.keyframe_points:
+            keyframe.interpolation = 'LINEAR'
+        fcurve.update()
+
+# Camera settings
+camera.data.lens = 35.0
+camera.data.sensor_width = 36.0
+camera.data.dof.use_dof = True
+camera.data.dof.aperture_fstop = 2.8
+```
+
+---
+
+## Test Cases
+
+### Test 1: Basic Orbit Creation
+
+```python
+def test_create_basic_orbit():
+    """Test creating basic orbit camera rig"""
+    pivot, camera, target = create_orbit_camera_rig(
+        context=bpy.context,
+        orbit_radius=3.0,
+        camera_height=1.5,
+        focal_length=35.0,
+    )
+
+    # Verify objects created
+    assert pivot is not None
+    assert camera is not None
+    assert target is not None
+
+    # Verify hierarchy
+    assert camera.parent == pivot
+
+    # Verify camera type
+    assert camera.type == 'CAMERA'
+    assert camera.data.type == 'PERSP'
+
+    # Verify focal length
+    assert camera.data.lens == 35.0
+
+    # Verify Track To constraint exists
+    constraints = [c for c in camera.constraints if c.type == 'TRACK_TO']
+    assert len(constraints) == 1
+    assert constraints[0].target == target
+
+    print("✓ Basic orbit creation test passed")
+```
+
+### Test 2: Animation Keyframes
+
+```python
+def test_orbit_animation():
+    """Test orbit animation keyframes"""
+    pivot, camera, target = create_orbit_camera_rig(bpy.context)
+
+    # Animate orbit
+    animate_orbit(pivot, duration_frames=240)
+
+    # Verify keyframes exist
+    assert pivot.animation_data is not None
+    assert pivot.animation_data.action is not None
+
+    # Find Z rotation F-Curve
+    fcurve = None
+    for fc in pivot.animation_data.action.fcurves:
+        if fc.data_path == "rotation_euler" and fc.array_index == 2:
+            fcurve = fc
+            break
+
+    assert fcurve is not None
+
+    # Verify keyframe count
+    assert len(fcurve.keyframe_points) == 2
+
+    # Verify keyframe values
+    assert fcurve.keyframe_points[0].co.y == 0.0  # Start at 0°
+    assert abs(fcurve.keyframe_points[1].co.y - math.tau) < 0.01  # End at 360°
+
+    # Verify frame numbers
+    assert fcurve.keyframe_points[0].co.x == 1
+    assert fcurve.keyframe_points[1].co.x == 240
+
+    print("✓ Orbit animation test passed")
+```
+
+### Test 3: Quick Create Presets
+
+```python
+def test_quick_create_presets():
+    """Test all Quick Create presets"""
+    presets = ['PRODUCT', 'CHARACTER', 'HERO', 'DETAIL', 'ARCHITECTURAL']
+
+    for preset in presets:
+        # Clear scene
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+
+        # Create orbit with preset
+        bpy.ops.orbit.quick_create(preset=preset, duration_preset='240')
+
+        # Verify camera exists and is active
+        assert bpy.context.scene.camera is not None
+        assert bpy.context.scene.camera.type == 'CAMERA'
+
+        # Verify collections created
+        assert "Orbit_Cameras" in bpy.data.collections
+        assert "Orbit_Lighting" in bpy.data.collections
+        assert "Orbit_Scene" in bpy.data.collections
+
+        print(f"✓ Quick Create test passed: {preset}")
+```
+
+
+---
+
+## Troubleshooting Guide
+
+### Problem: Camera doesn't orbit smoothly
+
+**Symptoms:** Jerky or irregular motion
+
+**Solutions:**
+1. Check interpolation is set to LINEAR:
+   ```python
+   for keyframe in fcurve.keyframe_points:
+       keyframe.interpolation = 'LINEAR'
+   ```
+
+2. Verify only 2 keyframes exist (start/end)
+
+3. Check pivot empty has no other animations
+
+### Problem: Camera not pointing at target
+
+**Symptoms:** Camera drifts off-center
+
+**Solutions:**
+1. Verify Track To constraint target is correct
+2. Check constraint Track Axis is 'TRACK_NEGATIVE_Z'
+3. Check constraint Up Axis is 'UP_Y'
+4. Ensure constraint is enabled (eye icon)
+
+### Problem: Orbit isn't circular
+
+**Symptoms:** Elliptical or irregular path
+
+**Solutions:**
+1. Verify pivot empty is at target center
+2. Check camera location is on local X-axis only: `(radius, 0, height)`
+3. Ensure pivot empty has no scale transforms
+
+### Problem: Timeline doesn't match animation
+
+**Symptoms:** Animation cut off or extends beyond frames
+
+**Solutions:**
+1. Enable auto_set_timeline in settings
+2. Manually set timeline: `scene.frame_end = duration_frames`
+3. Check preview range matches
+
+### Problem: Depth of field not working
+
+**Symptoms:** No blur visible
+
+**Solutions:**
+1. Enable DOF in camera settings: `camera.data.dof.use_dof = True`
+2. Set appropriate f-stop: `camera.data.dof.aperture_fstop = 2.8`
+3. Verify focus distance is set: `camera.data.dof.focus_distance = orbit_radius`
+4. Use Cycles or EEVEE (not Workbench)
+
+
+---
+
+## Related Documentation
+
+- [Orbit Camera - User Guide](./orbit-camera.mdx)
+- [Part 1: Overview & Data Model](./orbit-camera-tech-01-overview.mdx)
+- [Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)

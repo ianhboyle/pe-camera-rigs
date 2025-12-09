@@ -1,0 +1,158 @@
+---
+title: "Isometric Camera: Live Controller Workflow"
+description: An interactive, non-destructive camera rig powered by Geometry Nodes.
+status: Planning
+priority: High
+---
+
+# Isometric Camera: Live Controller Workflow
+
+**See also:**
+- [Part 2: Code & Node Implementation →](./isometric-02-code.mdx)
+
+---
+
+## Executive Summary
+
+The **Live Controller Workflow** is a modern, flexible approach for the Isometric Camera, powered by Geometry Nodes. It replaces the old "1-click preset" system with a dynamic, non-destructive controller rig.
+
+- ✅ **Interactive Control:** Change camera types, zoom, and angles in real-time directly from the modifier panel.
+- ✅ **Non-Destructive:** The entire rig is a modifier on a controller object. Tweak, disable, or remove it at any time without deleting your camera.
+- ✅ **Animatable Properties:** Every setting, from projection type to orthographic scale, can be keyframed.
+- ✅ **Procedural Guides:** Optional reference grids and axes are generated on the fly by the node group, keeping your scene clean.
+
+**Refinement Goals:**
+1. **Interactive Presets:** Switch between isometric camera styles instantly.
+2. **Live Tweaking:** See updates immediately as you adjust sliders.
+3. **Animatable:** Keyframe any property for dynamic camera effects.
+4. **Clean & Contained:** The entire rig is managed by a single controller object and its modifier.
+
+---
+
+## The Live Controller Workflow
+
+### Why a Controller-Based System is Superior
+
+Instead of creating a static camera with fixed settings, this new workflow involves adding a single **"Isometric Controller"** object. This object has a **Geometry Nodes modifier** that procedurally generates and controls the camera.
+
+1.  **Add Controller:** User adds the rig via `Add > Camera > Isometric Controller`.
+2.  **Select Controller:** The user selects the newly created controller object.
+3.  **Go to Modifiers:** All camera controls are now located in the **Modifier Properties** tab.
+4.  **Tweak & Animate:** The user can now change presets, adjust the zoom, and even keyframe properties directly in the modifier panel.
+
+This is a more standard, powerful, and "Blender-native" way of working.
+
+---
+
+## The Live Controller System
+
+### UI Panel Design (Modifier Properties)
+
+All controls are now consolidated into a single, intuitive panel in the Modifier Properties tab when the "Isometric Controller" is selected.
+
+```
+┌───────────────────────────────────────────────────┐
+│ ▼  ज्यो Isometric Camera Controller                  │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 📷 Projection                                     │
+│                                                   │
+│    Type: [ True Isometric      ▼]                  │
+│          • Game (2:1 Ratio)                       │
+│          • Game (4:3 Ratio)                       │
+│          • True Isometric ⭐                       │
+│          • Dimetric (30°)                         │
+│          • Trimetric                              │
+│          • Military (Top-Down)                    │
+│          • Cavalier                               │
+│          • Custom                                 │
+│                                                   │
+│ 📏 Ortho Scale:  [ 14.00 ]═════════ sliders ═════│
+│    (Zoom Level)                                   │
+│                                                   │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 🔄 Custom Angles (Only if Type is 'Custom')       │
+│                                                   │
+│    Rotation Z:   [ 45.0° ]═══════════ sliders ═══│
+│    Tilt X:       [ 30.0° ]═══════════ sliders ═══│
+│    Roll Y:       [ 0.0°  ]═══════════ sliders ═══│
+│                                                   │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 🌐 Procedural Guides                              │
+│                                                   │
+│    [☑] Show Reference Grid                        │
+│    [ ] Show Axis Indicators                       │
+│                                                   │
+└───────────────────────────────────────────────────┘
+```
+
+---
+
+## What the Controller Does
+
+Adding the "Isometric Controller" creates a rig where all logic is handled by the Geometry Nodes modifier.
+
+1.  **Creates Controller:** An empty object named `Isometric_Controller` is created.
+2.  **Attaches Modifier:** A Geometry Nodes modifier named "Isometric Camera Controller" is added to the empty.
+3.  **Generates Camera:** The node group *procedurally generates* the camera object, ensuring it's always correctly parented and configured.
+4.  **Links Properties:** The UI properties in the modifier panel (like `Type` and `Ortho Scale`) are directly wired into the node group to control the camera's rotation, zoom, and guide visibility.
+5.  **Activates Camera:** The newly generated camera is automatically set as the active scene camera.
+
+---
+
+## Projection Presets (Live Switching)
+
+The user can now switch between projection styles at any time from the `Type` dropdown in the modifier panel.
+
+### 🎮 Game & Pixel Art
+*   **Game (2:1 Ratio):** Sets tilt to `26.565°`. Perfect for 2:1 pixel ratio stairs.
+*   **Game (4:3 Ratio):** Sets tilt to `30°`. Ideal for 4:3 aspect tiles.
+
+### 📐 Technical & CAD
+*   **True Isometric:** Sets tilt to `35.264°` and rotation to `45°`. Mathematically correct, all axes equally foreshortened.
+*   **Dimetric (30°):** Sets tilt to `30°`. A common artistic variation.
+*   **Trimetric:** Uses custom angles for a unique perspective where all axes are foreshortened differently.
+
+### 🗺️ Plans & Maps
+*   **Military (Top-Down):** Sets tilt to `90°` for a perfect top-down orthographic view.
+*   **Cavalier:** Sets rotation to `0°`, tilt to `0°`, and roll to `45°` for a front-facing view with depth.
+
+---
+
+## Procedural Guides
+
+The optional scene elements are now generated procedurally by the Geometry Nodes group, keeping your scene outliner clean. They can be toggled on or off at any time from the modifier panel.
+
+*   **Show Reference Grid:** Generates a wireframe grid aligned to the world floor. Its size can be controlled by another input in the modifier.
+*   **Show Axis Indicators:** Generates simple XYZ axis lines at the world origin for orientation.
+
+---
+
+## Key UX Principles (Revised)
+
+### 1. Live & Interactive ✅
+The camera and its properties are no longer static. Change a setting in the modifier panel and see the result instantly in the viewport.
+
+### 2. Non-Destructive Workflow ✅
+The entire rig is just a modifier. You can disable it to see the original scene, tweak its settings without consequence, or delete the controller to cleanly remove the rig.
+
+### 3. Fully Animatable ✅
+Every property in the modifier panel can be keyframed. This allows for dynamic effects like zooming (`Ortho Scale`) or even animating a transition between different isometric views.
+
+### 4. Clean and Centralized ✅
+All controls are in one place (the modifier panel). The guides are procedural and don't clutter your scene with extra objects.
+
+---
+
+## Summary
+
+The **Live Controller Workflow** is a major evolution from the "1-click preset" system. It aligns the addon with modern Blender practices and provides a vastly more powerful, flexible, and intuitive user experience.
+
+1.  **Interactive Control:** No more re-running operators. Tweak settings live.
+2.  **Non-Destructive:** Safely experiment without permanently altering your scene.
+3.  **Animation-Ready:** Keyframe any camera property out-of-the-box.
+4.  **Clean:** Procedural guides keep your scene organized.
+
+**Result:** Users get a powerful, professional-grade isometric camera system that feels perfectly integrated into Blender's native modifier-based workflow.

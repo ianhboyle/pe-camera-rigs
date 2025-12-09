@@ -1,0 +1,495 @@
+---
+title: VR360 Mono Camera - Part 2: Core Implementation
+description: Implementation steps for camera, metadata, and GPU optimization
+status: Planning
+priority: Medium
+---
+
+# VR360 Mono Camera - Part 2: Core Implementation
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr360mono-tech-01-overview.mdx)
+- [Part 3: Operators & UI →](./vr360mono-tech-03-operators.mdx)
+- [Part 4: Reference & Testing →](./vr360mono-tech-04-reference.mdx)
+
+---
+
+## Implementation Steps
+
+### Step 1: Create Camera
+
+**Checklist:**
+- [ ] Create camera at origin
+- [ ] Position at camera_height
+- [ ] Set camera type to PANO
+- [ ] Set panorama type to EQUIRECTANGULAR
+- [ ] Configure clip start/end
+- [ ] Create/link to VR_Cameras collection
+- [ ] Set as active camera
+
+**Implementation:**
+
+```python
+def create_vr360_mono_camera(
+    camera_height=1.6,
+    resolution=(7680, 3840),
+    name="VR360_Camera",
+):
+    """Create VR360 monoscopic equirectangular camera."""
+
+    # 1. Create camera at origin
+    bpy.ops.object.camera_add(
+        location=(0, 0, camera_height)
+    )
+    camera = bpy.context.active_object
+    camera.name = name
+
+    # 2. Configure camera for VR360
+    cam_data = camera.data
+
+    # Set to panoramic equirectangular
+    cam_data.type = 'PANO'
+    cam_data.cycles.panorama_type = 'EQUIRECTANGULAR'
+
+    # Sensor settings (full frame equivalent)
+    cam_data.sensor_width = 36.0
+    cam_data.sensor_fit = 'HORIZONTAL'
+
+    # Clip settings
+    cam_data.clip_start = 0.01
+    cam_data.clip_end = 1000.0
+
+    # 3. Organize in collection
+    vr_collection = get_or_create_vr_collection()
+    link_to_collection(camera, vr_collection)
+
+    # 4. Set as scene camera
+    bpy.context.scene.camera = camera
+
+    # 5. Set render resolution (2:1 ratio for equirectangular)
+    bpy.context.scene.render.resolution_x = resolution[0]
+    bpy.context.scene.render.resolution_y = resolution[1]
+    bpy.context.scene.render.resolution_percentage = 100
+
+    # 6. Ensure Cycles is enabled
+    if bpy.context.scene.render.engine != 'CYCLES':
+        bpy.context.scene.render.engine = 'CYCLES'
+
+    print(f"Created VR360 Camera: {camera.name}")
+    print(f"  Resolution: {resolution[0]}×{resolution[1]}")
+    print(f"  Height: {camera_height}m")
+
+    return camera
+
+
+def get_or_create_vr_collection():
+    """Get or create VR_Cameras collection."""
+
+    collection_name = "VR_Cameras"
+
+    if collection_name in bpy.data.collections:
+        return bpy.data.collections[collection_name]
+    else:
+        collection = bpy.data.collections.new(collection_name)
+        bpy.context.scene.collection.children.link(collection)
+        return collection
+
+
+def link_to_collection(obj, collection):
+    """Link object to specific collection."""
+
+    # Unlink from current collections
+    for coll in obj.users_collection:
+        coll.objects.unlink(obj)
+
+    # Link to target collection
+    collection.objects.link(obj)
+```
+
+---
+
+### Step 2: Camera Level Check & Helpers
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/camera_utils.py
+
+import bpy
+import math
+from mathutils import Vector
+
+
+def check_camera_level(camera, tolerance_degrees=2.0):
+    """Check if camera is level (prevents motion sickness)."""
+
+    # Get rotation in degrees
+    rot_x = math.degrees(camera.rotation_euler.x)
+    rot_y = math.degrees(camera.rotation_euler.y)
+
+    # Check if within tolerance
+    is_level = abs(rot_x) <= tolerance_degrees and abs(rot_y) <= tolerance_degrees
+
+    return is_level, rot_x, rot_y
+
+
+def apply_color_space(scene, color_space):
+    """Apply color space settings."""
+
+    view_settings = scene.view_settings
+    display_settings = scene.display_settings
+
+    if color_space == 'SRGB':
+        # Standard sRGB (YouTube default)
+        view_settings.view_transform = 'Standard'
+        view_settings.look = 'None'
+        display_settings.display_device = 'sRGB'
+
+    elif color_space == 'REC709':
+        # Rec.709 broadcast standard
+        view_settings.view_transform = 'Standard'
+        view_settings.look = 'None'
+        display_settings.display_device = 'Rec709'
+
+    elif color_space == 'ACES':
+        # ACES high-end workflow
+        view_settings.view_transform = 'ACES'
+        view_settings.look = 'None'
+
+    print(f"Color space set to: {color_space}")
+
+
+def auto_level_camera(camera):
+    """Automatically level camera (set X and Y rotation to 0)."""
+
+    # Keep Z rotation (panning), zero out X and Y
+    camera.rotation_euler.x = 0.0
+    camera.rotation_euler.y = 0.0
+
+    print(f"Camera leveled: {camera.name}")
+
+
+def apply_resolution_preset(preset, settings):
+    """Apply resolution preset and return (width, height, fps)."""
+
+    presets = {
+        'YOUTUBE_4K': (3840, 2160, 60),
+        'YOUTUBE_5K': (5120, 2560, 60),
+        'YOUTUBE_8K': (7680, 3840, 60),
+        'META_QUEST': (5760, 2880, 72),
+    }
+
+    if preset in presets:
+        w, h, fps = presets[preset]
+        settings.resolution_x = w
+        settings.resolution_y = h
+        settings.fps = fps
+        return w, h, fps
+    else:
+        # Custom - return current settings
+        return settings.resolution_x, settings.resolution_y, settings.fps
+```
+
+---
+
+### Step 3: Metadata Injection
+
+**Checklist:**
+- [ ] Import spatial-media library
+- [ ] Check input file exists
+- [ ] Create metadata object
+- [ ] Set spherical flag (mono)
+- [ ] Inject metadata into file
+- [ ] Verify injection if requested
+- [ ] Handle errors gracefully
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/metadata_utils.py
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+
+def inject_vr360_metadata(
+    input_file,
+    output_file,
+    verify=True,
+):
+    """Inject VR360 spatial metadata using spatial-media library."""
+
+    # 1. Validate input
+    if not os.path.exists(input_file):
+        print(f"Error: Input file not found: {input_file}")
+        return False
+
+    # 2. Get spatial-media path (bundled with add-on)
+    addon_dir = Path(__file__).parent.parent
+    spatialmedia_dir = addon_dir / "lib" / "spatialmedia"
+
+    if not spatialmedia_dir.exists():
+        print("Error: spatial-media library not found (should be bundled)")
+        return False
+
+    # 3. Add to Python path
+    if str(spatialmedia_dir.parent) not in sys.path:
+        sys.path.insert(0, str(spatialmedia_dir.parent))
+
+    try:
+        # 4. Import spatial-media modules
+        from spatialmedia import metadata_utils
+
+        # 5. Create metadata (monoscopic 360)
+        metadata = metadata_utils.Metadata()
+        metadata.video = metadata_utils.generate_spherical_xml(
+            stereo=None,  # Mono - no stereo
+            crop_rectangle=None
+        )
+
+        # 6. Inject metadata
+        print("Injecting VR360 (mono) metadata...")
+        with open(input_file, 'rb') as in_fh:
+            with open(output_file, 'wb') as out_fh:
+                metadata_utils.inject_metadata(
+                    in_fh,
+                    out_fh,
+                    metadata,
+                    console=False
+                )
+
+        print(f"✓ Metadata injected: {output_file}")
+
+        # 7. Verify if requested
+        if verify:
+            verified = verify_vr360_metadata(output_file)
+            if verified:
+                print("✓ Metadata verified successfully")
+            else:
+                print("⚠ Warning: Could not verify metadata")
+                return False
+
+        return True
+
+    except Exception as e:
+        print(f"✗ Error injecting metadata: {e}")
+        return False
+
+
+def verify_vr360_metadata(video_file):
+    """Verify VR360 metadata is present in video file."""
+
+    try:
+        from spatialmedia import metadata_utils
+
+        with open(video_file, 'rb') as fh:
+            metadata = metadata_utils.parse_metadata(fh)
+
+            if metadata and metadata.video:
+                # Check for required fields
+                has_spherical = 'Spherical' in metadata.video
+
+                return has_spherical
+            return False
+
+    except Exception as e:
+        print(f"Could not verify metadata: {e}")
+        return False
+```
+
+---
+
+### Step 3: Lighting Setup
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/scene_setup.py
+
+# Use same setup_vr_lighting() function as VR180
+# See vr180-tech-02-implementation.mdx for complete implementation
+# Function handles both VR180 and VR360 cameras with far-positioned lights
+```
+
+---
+
+### Step 4: GPU Optimization
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/gpu_optimization.py
+
+import bpy
+
+
+def setup_gpu_rendering(scene, tile_size=512):
+    """Configure GPU rendering with OptiX/HIP detection."
+
+    prefs = bpy.context.preferences
+    cycles_prefs = prefs.addons['cycles'].preferences
+
+    # 1. Try to set OptiX first (NVIDIA)
+    try:
+        cycles_prefs.compute_device_type = 'OPTIX'
+        print("GPU: OptiX enabled (NVIDIA)")
+    except:
+        # 2. Try HIP (AMD)
+        try:
+            cycles_prefs.compute_device_type = 'HIP'
+            print("GPU: HIP enabled (AMD)")
+        except:
+            # 3. Try CUDA (older NVIDIA)
+            try:
+                cycles_prefs.compute_device_type = 'CUDA'
+                print("GPU: CUDA enabled (NVIDIA)")
+            except:
+                # 4. Fallback to CPU
+                print("GPU: No compatible GPU found, using CPU")
+                scene.cycles.device = 'CPU'
+                return
+
+    # Enable all available devices
+    for device in cycles_prefs.devices:
+        device.use = True
+
+    # Scene settings
+    scene.cycles.device = 'GPU'
+    scene.cycles.tile_size = tile_size
+
+    # OptiX denoiser if available
+    try:
+        scene.cycles.denoiser = 'OPTIX'
+        print("Denoiser: OptiX")
+    except:
+        scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+        print("Denoiser: OpenImageDenoise")
+
+    # Performance optimizations
+    scene.cycles.use_persistent_data = True
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = 0.01
+
+    # Path guiding (Blender 5.0+)
+    try:
+        scene.cycles.use_path_guiding = True
+        print("Path Guiding: Enabled")
+    except:
+        pass
+
+    print(f"GPU rendering configured (tile size: {tile_size})")
+```
+
+---
+
+### Step 5: Scene Setup Helpers
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/scene_setup.py
+
+import bpy
+import math
+
+
+def create_reference_sphere(radius=0.5, location=(0, 0, 1.0)):
+    """Create reference sphere for scale."""
+
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=radius,
+        location=location
+    )
+    sphere = bpy.context.active_object
+    sphere.name = "Reference_Sphere"
+
+    # Smooth shading
+    bpy.ops.object.shade_smooth()
+
+    return sphere
+
+
+def create_cyclorama(size=20, height=10):
+    """Create cyclorama background (floor + wall + curved transition)."""
+
+    # Floor
+    bpy.ops.mesh.primitive_plane_add(
+        size=size,
+        location=(0, 0, 0)
+    )
+    floor = bpy.context.active_object
+    floor.name = "Cyclorama_Floor"
+
+    # Wall
+    bpy.ops.mesh.primitive_plane_add(
+        size=size,
+        location=(0, -size/2, height/2)
+    )
+    wall = bpy.context.active_object
+    wall.name = "Cyclorama_Wall"
+    wall.rotation_euler[0] = math.radians(90)
+
+    # Smooth shading
+    for obj in (floor, wall):
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.shade_smooth()
+
+    # Create material
+    mat_cyc = bpy.data.materials.new("Cyclorama_Mat")
+    mat_cyc.use_nodes = True
+    bsdf = mat_cyc.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (0.07, 0.07, 0.07, 1)  # Dark gray
+
+    # Apply material
+    for obj in (floor, wall):
+        if len(obj.data.materials) == 0:
+            obj.data.materials.append(mat_cyc)
+
+    return floor, wall
+
+
+def create_3point_lighting():
+    """Create 3-point lighting setup."""
+
+    # Key light (main)
+    bpy.ops.object.light_add(
+        type='AREA',
+        location=(4, -4, 4),
+        rotation=(math.radians(60), 0, math.radians(30))
+    )
+    key_light = bpy.context.active_object
+    key_light.name = "Key_Light"
+    key_light.data.energy = 1600
+    key_light.data.size = 3.0
+
+    # Fill light (soften shadows)
+    bpy.ops.object.light_add(
+        type='AREA',
+        location=(-3, -2, 2.5),
+        rotation=(math.radians(60), 0, math.radians(-20))
+    )
+    fill_light = bpy.context.active_object
+    fill_light.name = "Fill_Light"
+    fill_light.data.energy = 500
+    fill_light.data.size = 4.0
+
+    # Rim light (backlight)
+    bpy.ops.object.light_add(
+        type='POINT',
+        location=(0, 4, 4)
+    )
+    rim_light = bpy.context.active_object
+    rim_light.name = "Rim_Light"
+    rim_light.data.energy = 900
+
+    return key_light, fill_light, rim_light
+```
+
+---
+
+**Continue to:**
+- [Part 3: Operators & UI →](./vr360mono-tech-03-operators.mdx)

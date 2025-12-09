@@ -1,0 +1,734 @@
+---
+title: Orbit Camera Rig - Part 2: Core Implementation
+description: Step-by-step implementation guide with complete code
+status: Planning
+priority: High
+---
+
+# Orbit Camera Rig - Part 2: Core Implementation
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Part 1 data structures
+
+---
+
+## Overview
+
+This is Part 2 of the Orbit Camera technical specification, covering:
+- Complete function implementations
+- Step-by-step implementation checklists
+- Helper utilities and internal functions
+
+See also:
+- [Part 1: Overview & Data Model](./orbit-camera-tech-01-overview.mdx)
+- [Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)
+- [Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)
+
+---
+
+## Implementation Checklist
+
+- [ ] Implement `create_orbit_camera_rig()`
+- [ ] Implement `setup_track_to_constraint()`
+- [ ] Implement `animate_orbit()`
+- [ ] Implement `configure_orbit_camera()`
+- [ ] Implement `apply_camera_preset()`
+- [ ] Implement `add_reference_capsule()`
+- [ ] Implement `add_orbit_lighting()`
+- [ ] Implement `add_floor_plane()`
+- [ ] Implement utility helpers
+- [ ] Test complete workflow end-to-end
+
+---
+
+## Orbit Rig Creation
+
+### Step 1: Create Orbit Camera Rig
+
+**Checklist:**
+- [ ] Create pivot empty at target location
+- [ ] Create target empty for Track To constraint
+- [ ] Create camera as child of pivot
+- [ ] Position camera at orbit radius on local X-axis
+- [ ] Add Track To constraint
+- [ ] Create/link to Orbit_Cameras collection
+- [ ] Set as active camera
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+import bpy
+import math
+from mathutils import Vector, Euler
+from typing import Tuple, Optional
+
+# Collection names
+COLLECTION_CAMERAS = "Orbit_Cameras"
+COLLECTION_LIGHTING = "Orbit_Lighting"
+COLLECTION_SCENE = "Orbit_Scene"
+
+
+def ensure_collection(name: str) -> bpy.types.Collection:
+    """Ensure a collection exists in the scene."""
+    if name in bpy.data.collections:
+        return bpy.data.collections[name]
+
+    collection = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(collection)
+    return collection
+
+
+def create_orbit_camera_rig(
+    context: bpy.types.Context,
+    target_object: bpy.types.Object = None,
+    target_location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    orbit_radius: float = 3.0,
+    camera_height: float = 1.5,
+    focal_length: float = 35.0,
+    name: str = "OrbitCamera",
+) -> Tuple[bpy.types.Object, bpy.types.Object, bpy.types.Object]:
+    """Create complete orbit camera rig with empty pivot and camera."""
+
+    # Ensure collection exists
+    collection = ensure_collection(COLLECTION_CAMERAS)
+
+    # Determine target location
+    if target_object:
+        target_loc = get_object_bounds_center(target_object)
+    else:
+        target_loc = Vector(target_location)
+
+    # 1. Create pivot empty at target location
+    pivot_empty = bpy.data.objects.new(name=f"{name}_Pivot", object_data=None)
+    pivot_empty.empty_display_type = 'PLAIN_AXES'
+    pivot_empty.empty_display_size = 1.0
+    pivot_empty.location = target_loc
+    collection.objects.link(pivot_empty)
+
+    # 2. Create target empty (for Track To constraint)
+    target_empty = bpy.data.objects.new(name=f"{name}_Target", object_data=None)
+    target_empty.empty_display_type = 'SPHERE'
+    target_empty.empty_display_size = 0.3
+    target_empty.location = target_loc
+    collection.objects.link(target_empty)
+
+    # 3. Create camera
+    camera_data = bpy.data.cameras.new(name=f"{name}_Data")
+    camera_data.type = 'PERSP'
+    camera_data.lens = focal_length
+    camera_data.sensor_width = 36.0  # Full frame
+
+    camera_object = bpy.data.objects.new(name=name, object_data=camera_data)
+    collection.objects.link(camera_object)
+
+    # 4. Parent camera to pivot empty
+    camera_object.parent = pivot_empty
+
+    # 5. Position camera at orbit radius on local X-axis
+    camera_object.location = (orbit_radius, 0.0, camera_height)
+
+    # 6. Add Track To constraint
+    setup_track_to_constraint(camera_object, target_empty)
+
+    # 7. Set as active camera
+    context.scene.camera = camera_object
+
+    print(f"Created Orbit Rig: {pivot_empty.name}")
+    print(f"  Camera: {camera_object.name}")
+    print(f"  Radius: {orbit_radius}m")
+    print(f"  Focal: {focal_length}mm")
+
+    return pivot_empty, camera_object, target_empty
+
+
+def setup_track_to_constraint(
+    camera: bpy.types.Object,
+    target: bpy.types.Object,
+    height_offset: float = 0.0,
+) -> bpy.types.Constraint:
+    """Setup Track To constraint for camera to always point at target."""
+
+    # If height offset, move target empty up/down
+    if height_offset != 0.0:
+        target.location.z += height_offset
+
+    # Add Track To constraint
+    constraint = camera.constraints.new(type='TRACK_TO')
+    constraint.name = "Orbit_TrackTo"
+    constraint.target = target
+
+    # Camera-specific Track To settings
+    constraint.track_axis = 'TRACK_NEGATIVE_Z'  # Camera looks down -Z
+    constraint.up_axis = 'UP_Y'  # Camera up is +Y
+    constraint.target_space = 'WORLD'
+    constraint.owner_space = 'WORLD'
+
+    return constraint
+
+
+def animate_orbit(
+    pivot_empty: bpy.types.Object,
+    start_angle: float = 0.0,
+    end_angle: float = math.tau,  # 2π = 360°
+    duration_frames: int = 240,
+    direction: str = 'CCW',
+    easing: str = 'LINEAR',
+) -> None:
+    """Animate pivot empty rotation for orbit motion."""
+
+    # Adjust for direction
+    if direction == 'CW':
+        start_angle = -start_angle
+        end_angle = -end_angle
+
+    # Clear existing rotation animation
+    pivot_empty.rotation_euler = (0, 0, 0)
+
+    # Set start keyframe
+    pivot_empty.rotation_euler[2] = start_angle  # Z-axis rotation
+    pivot_empty.keyframe_insert(data_path="rotation_euler", frame=1, index=2)
+
+    # Set end keyframe
+    pivot_empty.rotation_euler[2] = end_angle
+    pivot_empty.keyframe_insert(data_path="rotation_euler", frame=duration_frames, index=2)
+
+    # Set interpolation mode
+    if pivot_empty.animation_data and pivot_empty.animation_data.action:
+        for fcurve in pivot_empty.animation_data.action.fcurves:
+            if fcurve.data_path == "rotation_euler" and fcurve.array_index == 2:
+                if easing == 'LINEAR':
+                    for keyframe in fcurve.keyframe_points:
+                        keyframe.interpolation = 'LINEAR'
+                elif easing == 'EASE_IN_OUT':
+                    for keyframe in fcurve.keyframe_points:
+                        keyframe.interpolation = 'BEZIER'
+                        keyframe.handle_left_type = 'AUTO'
+                        keyframe.handle_right_type = 'AUTO'
+                fcurve.update()
+
+
+def configure_orbit_camera(
+    camera: bpy.types.Object,
+    focal_length: float = 35.0,
+    sensor_width: float = 36.0,
+    use_dof: bool = False,
+    f_stop: float = 2.8,
+    focus_distance: float = None,
+) -> None:
+    """
+    Configure camera properties for orbit rig.
+    """
+    if camera.type != 'CAMERA':
+        raise ValueError(f"Object '{camera.name}' is not a camera")
+
+    cam_data = camera.data
+
+    # Set focal length
+    cam_data.lens = focal_length
+
+    # Set sensor size
+    cam_data.sensor_width = sensor_width
+
+    # Configure depth of field
+    cam_data.dof.use_dof = use_dof
+    if use_dof:
+        cam_data.dof.aperture_fstop = f_stop
+
+        # Set focus distance
+        if focus_distance is not None:
+            cam_data.dof.focus_distance = focus_distance
+        else:
+            # Auto-calculate from orbit radius (distance to target)
+            if camera.parent:
+                # Camera offset from parent = orbit radius
+                cam_data.dof.focus_distance = camera.location.length
+
+
+def apply_camera_preset(
+    camera: bpy.types.Object,
+    preset: str = 'PRODUCT',
+) -> None:
+    """
+    Apply camera preset configuration.
+
+    Presets:
+        PRODUCT: 35mm, f/2.8, DOF enabled
+        CHARACTER: 50mm, f/4.0, DOF enabled
+        HERO: 24mm, no DOF, wide dramatic
+        DETAIL: 85mm, f/1.8, shallow DOF
+        ARCHITECTURAL: 35mm, no DOF, everything sharp
+    """
+    presets = {
+        'PRODUCT': {'focal_length': 35.0, 'f_stop': 2.8, 'use_dof': True},
+        'CHARACTER': {'focal_length': 50.0, 'f_stop': 4.0, 'use_dof': True},
+        'HERO': {'focal_length': 24.0, 'f_stop': 8.0, 'use_dof': False},
+        'DETAIL': {'focal_length': 85.0, 'f_stop': 1.8, 'use_dof': True},
+        'ARCHITECTURAL': {'focal_length': 35.0, 'f_stop': 11.0, 'use_dof': False},
+    }
+
+    if preset not in presets:
+        raise ValueError(f"Unknown preset: {preset}")
+
+    settings = presets[preset]
+    configure_orbit_camera(
+        camera,
+        focal_length=settings['focal_length'],
+        f_stop=settings['f_stop'],
+        use_dof=settings['use_dof'],
+    )
+```
+
+---
+
+## Step 2: Scene Setup
+
+### File: `scene_setup.py`
+
+```python
+import bpy
+import math
+from mathutils import Vector
+from typing import List, Tuple
+
+COLLECTION_LIGHTING = "Orbit_Lighting"
+COLLECTION_SCENE = "Orbit_Scene"
+
+
+def ensure_collection(name: str) -> bpy.types.Collection:
+    """Ensure a collection exists in the scene."""
+    if name in bpy.data.collections:
+        return bpy.data.collections[name]
+
+    collection = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(collection)
+    return collection
+
+
+def add_reference_capsule(
+    context: bpy.types.Context,
+    height: float = 1.8,
+    radius: float = 0.25,
+    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    """Add person-scale reference capsule (1.8m height)."""
+
+    collection = ensure_collection(COLLECTION_SCENE)
+    cylinder_height = height - 2 * radius
+
+    # Create cylinder body
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=radius,
+        depth=cylinder_height,
+        location=(location[0], location[1], location[2] + radius + cylinder_height/2)
+    )
+    capsule = context.active_object
+    capsule.name = "Reference_Capsule"
+
+    # Add top hemisphere
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=radius,
+        location=(location[0], location[1], location[2] + height - radius)
+    )
+    top_sphere = context.active_object
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.bisect(
+        plane_co=(0, 0, location[2] + height - radius),
+        plane_no=(0, 0, 1),
+        clear_inner=True
+    )
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Add bottom hemisphere
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=radius,
+        location=(location[0], location[1], location[2] + radius)
+    )
+    bottom_sphere = context.active_object
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.bisect(
+        plane_co=(0, 0, location[2] + radius),
+        plane_no=(0, 0, 1),
+        clear_outer=True
+    )
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Join all parts
+    bpy.ops.object.select_all(action='DESELECT')
+    capsule.select_set(True)
+    top_sphere.select_set(True)
+    bottom_sphere.select_set(True)
+    context.view_layer.objects.active = capsule
+    bpy.ops.object.join()
+
+    # Move to collection
+    for coll in capsule.users_collection:
+        coll.objects.unlink(capsule)
+    collection.objects.link(capsule)
+
+    # Create semi-transparent material
+    mat = bpy.data.materials.new(name="Capsule_Material")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs['Base Color'].default_value = (0.3, 0.6, 1.0, 1.0)
+        bsdf.inputs['Alpha'].default_value = 0.3
+    mat.blend_method = 'BLEND'
+    capsule.data.materials.append(mat)
+    capsule.show_in_front = True
+
+    return capsule
+
+
+def add_orbit_lighting(
+    context: bpy.types.Context,
+    preset: str = 'PRODUCT',
+    target_location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> List[bpy.types.Object]:
+    """
+    Add lighting setup for orbit camera.
+
+    Presets:
+        PRODUCT: Clean 3-point for e-commerce (Key 100%, Fill 60%, Rim 70%)
+        SOFT: Even diffused from multiple angles (3 equal lights)
+        STUDIO: Professional 4-point (Key, Fill, Rim, Background)
+        DRAMATIC: High contrast cinematic (Strong spot + minimal fill)
+        TECHNICAL: Flat shadowless overhead (Single large area)
+        OUTDOOR: Sun + sky simulation (Directional sun)
+        BACKLIGHT: Rim/edge focus (2 rim lights + minimal fill)
+    """
+    collection = ensure_collection(COLLECTION_LIGHTING)
+    lights = []
+    target = Vector(target_location)
+
+    if preset == 'PRODUCT':
+        # 3-point lighting: Key 100%, Fill 60%, Rim 70%
+        setup = [
+            ("Key", 'AREA', (3, -3, 4), 300, 5),
+            ("Fill", 'AREA', (-2, -2, 2), 180, 8),
+            ("Rim", 'AREA', (0, 3, 4), 210, 4),
+        ]
+        for name, light_type, pos, energy, size in setup:
+            bpy.ops.object.light_add(type=light_type, location=target + Vector(pos))
+            light = context.active_object
+            light.name = f"{name}_Product"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    elif preset == 'SOFT':
+        # Even multi-point diffused lighting
+        positions = [
+            (4, -4, 4),   # Front-right
+            (-4, -4, 4),  # Front-left
+            (0, 4, 3),    # Back-center
+        ]
+        for i, pos in enumerate(positions):
+            bpy.ops.object.light_add(type='AREA', location=target + Vector(pos))
+            light = context.active_object
+            light.name = f"Soft_{i+1}"
+            light.data.energy = 180
+            light.data.size = 8
+            lights.append(light)
+
+    elif preset == 'STUDIO':
+        # Professional 4-point: Key, Fill, Rim, Background
+        setup = [
+            ("Key", (4, -4, 5), 350, 6),
+            ("Fill", (-3, -3, 3), 180, 8),
+            ("Rim", (0, 5, 4), 220, 5),
+            ("Background", (0, 0, -2), 100, 10),
+        ]
+        for name, pos, energy, size in setup:
+            bpy.ops.object.light_add(type='AREA', location=target + Vector(pos))
+            light = context.active_object
+            light.name = f"{name}_Studio"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    elif preset == 'DRAMATIC':
+        # High contrast: Strong spot + minimal fill
+        # Key spotlight
+        bpy.ops.object.light_add(type='SPOT', location=target + Vector((5, -5, 6)))
+        key = context.active_object
+        key.name = "Key_Dramatic"
+        key.data.energy = 1000
+        key.data.spot_size = math.radians(60)
+        lights.append(key)
+
+        # Minimal fill
+        bpy.ops.object.light_add(type='AREA', location=target + Vector((-3, -2, 2)))
+        fill = context.active_object
+        fill.name = "Fill_Dramatic"
+        fill.data.energy = 80
+        fill.data.size = 10
+        lights.append(fill)
+
+    elif preset == 'TECHNICAL':
+        # Flat shadowless: Single large overhead
+        bpy.ops.object.light_add(type='AREA', location=target + Vector((0, 0, 20)))
+        light = context.active_object
+        light.name = "Overhead_Technical"
+        light.data.energy = 500
+        light.data.size = 20
+        lights.append(light)
+
+    elif preset == 'OUTDOOR':
+        # Sun + sky simulation
+        bpy.ops.object.light_add(type='SUN', location=target + Vector((10, -10, 15)))
+        sun = context.active_object
+        sun.name = "Sun_Outdoor"
+        sun.data.energy = 5.0
+        sun.data.angle = math.radians(0.545)  # Realistic sun size
+        sun.rotation_euler = (math.radians(45), 0, math.radians(-45))
+        lights.append(sun)
+
+        # Optional sky bounce (subtle fill)
+        bpy.ops.object.light_add(type='AREA', location=target + Vector((0, 0, 1)))
+        sky_fill = context.active_object
+        sky_fill.name = "Sky_Bounce"
+        sky_fill.data.energy = 80
+        sky_fill.data.size = 15
+        sky_fill.data.color = (0.7, 0.85, 1.0)  # Sky blue tint
+        lights.append(sky_fill)
+
+    elif preset == 'BACKLIGHT':
+        # Rim/edge focus: 2 rim + minimal front fill
+        setup = [
+            ("Rim_Main", 'AREA', (3, 4, 5), 300, 4),
+            ("Rim_Secondary", 'AREA', (-3, 4, 5), 200, 4),
+            ("Fill_Minimal", 'AREA', (0, -5, 1), 50, 10),
+        ]
+        for name, light_type, pos, energy, size in setup:
+            bpy.ops.object.light_add(type=light_type, location=target + Vector(pos))
+            light = context.active_object
+            light.name = f"{name}_Backlight"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    # Move all lights to collection
+    for light in lights:
+        for coll in light.users_collection:
+            coll.objects.unlink(light)
+        collection.objects.link(light)
+
+    return lights
+
+
+def add_floor_plane(
+    context: bpy.types.Context,
+    size: float = 20.0,
+    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    material_type: str = 'GLOSSY',
+) -> bpy.types.Object:
+    """
+    Add floor plane under target object.
+    """
+    collection = ensure_collection(COLLECTION_SCENE)
+
+    # Create plane
+    bpy.ops.mesh.primitive_plane_add(size=size, location=location)
+    floor = context.active_object
+    floor.name = "Floor_Plane"
+
+    # Move to collection
+    for coll in floor.users_collection:
+        coll.objects.unlink(floor)
+    collection.objects.link(floor)
+
+    # Create material based on type
+    mat = bpy.data.materials.new(name=f"Floor_{material_type}")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    bsdf = nodes.get("Principled BSDF")
+    if bsdf:
+        if material_type == 'MATTE':
+            bsdf.inputs['Roughness'].default_value = 1.0
+            bsdf.inputs['Base Color'].default_value = (0.8, 0.8, 0.8, 1.0)
+
+        elif material_type == 'GLOSSY':
+            bsdf.inputs['Roughness'].default_value = 0.2
+            bsdf.inputs['Metallic'].default_value = 0.0
+            bsdf.inputs['Base Color'].default_value = (0.9, 0.9, 0.9, 1.0)
+
+        elif material_type == 'MIRROR':
+            bsdf.inputs['Roughness'].default_value = 0.0
+            bsdf.inputs['Metallic'].default_value = 1.0
+
+        elif material_type == 'SHADOW_CATCHER':
+            # Add shader nodes for shadow catcher
+            nodes.clear()
+            output = nodes.new(type='ShaderNodeOutputMaterial')
+            shader = nodes.new(type='ShaderNodeBackground')
+            shader.inputs[0].default_value = (1, 1, 1, 1)
+            links.new(shader.outputs[0], output.inputs[0])
+
+            # Enable shadow catcher
+            floor.is_shadow_catcher = True
+
+    floor.data.materials.append(mat)
+
+    return floor
+```
+
+---
+
+## Step 3: Utility Helpers
+
+### File: `camera_rigs.py`
+
+```python
+def calculate_orbit_position(
+    center: Tuple[float, float, float],
+    radius: float,
+    angle: float,
+    height: float,
+) -> Tuple[float, float, float]:
+    """Calculate camera position on orbit circle."""
+    x = center[0] + radius * math.cos(angle)
+    y = center[1] + radius * math.sin(angle)
+    z = center[2] + height
+    return (x, y, z)
+
+
+def get_object_bounds_center(obj: bpy.types.Object) -> Vector:
+    """Get center point of object's bounding box in world space."""
+    bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+
+    min_co = Vector((
+        min(corner.x for corner in bbox_corners),
+        min(corner.y for corner in bbox_corners),
+        min(corner.z for corner in bbox_corners),
+    ))
+    max_co = Vector((
+        max(corner.x for corner in bbox_corners),
+        max(corner.y for corner in bbox_corners),
+        max(corner.z for corner in bbox_corners),
+    ))
+
+    return (min_co + max_co) / 2.0
+
+
+def set_timeline_range(
+    scene: bpy.types.Scene,
+    start_frame: int,
+    end_frame: int,
+) -> None:
+    """Set timeline start and end frames."""
+    scene.frame_start = start_frame
+    scene.frame_end = end_frame
+    scene.frame_current = start_frame
+    scene.use_preview_range = True
+    scene.frame_preview_start = start_frame
+    scene.frame_preview_end = end_frame
+```
+
+---
+
+## Step 4: Complete Scene Creation
+
+**Implementation:**
+
+```python
+def create_complete_orbit_scene(
+    context: bpy.types.Context,
+    settings: 'OrbitCameraSettings',
+) -> dict:
+    """Create complete orbit camera scene from settings."""
+
+    scene_objects = {}
+
+    # 1. Create orbit camera rig
+    pivot, camera, target = create_orbit_camera_rig(
+        context=context,
+        target_object=settings.target_object,
+        orbit_radius=settings.orbit_radius,
+        camera_height=settings.camera_height,
+        focal_length=settings.focal_length if settings.focal_length_preset == 'CUSTOM' else float(settings.focal_length_preset),
+    )
+    scene_objects['pivot'] = pivot
+    scene_objects['camera'] = camera
+    scene_objects['target'] = target
+
+    # 2. Configure camera
+    configure_orbit_camera(
+        camera,
+        focal_length=camera.data.lens,
+        use_dof=settings.use_dof,
+        f_stop=settings.f_stop,
+    )
+
+    # 3. Setup Track To constraint with height offset
+    if settings.target_height_offset != 0.0:
+        target.location.z += settings.target_height_offset
+
+    # 4. Animate orbit
+    duration = settings.duration_frames if settings.duration_preset == 'CUSTOM' else int(settings.duration_preset)
+    animate_orbit(
+        pivot,
+        start_angle=settings.start_angle,
+        end_angle=settings.end_angle,
+        duration_frames=duration,
+        direction=settings.direction,
+        easing=settings.easing,
+    )
+
+    # 5. Add reference capsule if enabled
+    if settings.add_reference_capsule:
+        capsule = add_reference_capsule(
+            context,
+            height=1.8,
+            radius=0.25,
+            location=target.location,
+        )
+        scene_objects['capsule'] = capsule
+
+    # 6. Add lighting if enabled
+    if settings.add_lighting:
+        lights = add_orbit_lighting(
+            context,
+            preset=settings.lighting_preset,
+            target_location=target.location,
+        )
+        scene_objects['lights'] = lights
+
+    # 7. Add floor plane if enabled
+    if settings.add_floor:
+        floor = add_floor_plane(
+            context,
+            size=20.0,
+            location=(target.location.x, target.location.y, 0.0),
+            material_type='GLOSSY',
+        )
+        scene_objects['floor'] = floor
+
+    # 8. Set timeline range if enabled
+    if settings.auto_set_timeline:
+        set_timeline_range(context.scene, 1, duration)
+
+    # 9. Set camera as active and switch viewport
+    context.scene.camera = camera
+    for area in context.screen.areas:
+        if area.type == 'VIEW_3D':
+            for space in area.spaces:
+                if space.type == 'VIEW_3D':
+                    space.region_3d.view_perspective = 'CAMERA'
+                    break
+
+    return scene_objects
+```
+
+
+---
+
+## Next Steps
+
+Continue to:
+- **[Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)** - Blender operators and UI panels
+- **[Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)** - API reference and test cases

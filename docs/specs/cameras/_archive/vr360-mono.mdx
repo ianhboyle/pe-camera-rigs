@@ -1,0 +1,697 @@
+---
+title: VR360 Mono Camera
+description: Monoscopic 360° equirectangular camera for YouTube VR360 content
+status: Planning
+priority: Medium
+---
+
+# VR360 Mono Camera
+
+**Status:** Planning
+**Priority:** Medium
+**Type:** Camera Rig
+**Target Platform:** YouTube VR360, Meta Quest, Steam VR
+
+---
+
+## Overview
+
+The VR360 Mono Camera creates a full 360-degree monoscopic (non-stereoscopic) virtual reality camera for immersive environmental content. It's designed for the **easiest possible workflow** from Blender to YouTube VR360 with zero external programs required.
+
+### What is VR360 Mono?
+
+VR360 Mono is a 360-degree video format that captures the entire sphere around the camera without stereoscopic 3D depth. While it lacks depth perception, it provides complete environmental immersion and works perfectly for environments, tours, and landscape content.
+
+**Key Benefits:**
+- **Full 360° coverage** - Viewer can look in any direction
+- **Simpler than stereo** - Single camera, faster renders
+- **Smaller file sizes** - Half the data of stereoscopic
+- **Perfect for environments** - Tours, landscapes, locations
+- **Native YouTube support** - Direct upload with automatic detection
+- **Lower motion sickness** - No stereo mismatch issues
+
+---
+
+## Use Cases
+
+### Content Creators
+- **Virtual Tours:** Real estate, museums, tourist destinations
+- **Travel Content:** 360° travel vlogs and destination showcases
+- **Environmental Videos:** Nature, landscapes, cityscapes
+- **Event Coverage:** Concerts, festivals, sports (audience perspective)
+- **Educational Content:** Virtual field trips, campus tours
+
+### 3D Artists & Studios
+- **Architectural Visualization:** Building interiors and exteriors
+- **Environment Art:** Showcasing 3D environments and worlds
+- **Concept Previsualization:** Immersive environment concepts
+- **Virtual Staging:** Real estate and interior design
+- **Game Environment Showcases:** Level design and world-building
+
+### Educators & Presenters
+- **Virtual Campus Tours:** University and school tours
+- **Museum Exhibits:** Virtual museum walkthroughs
+- **Historical Reconstructions:** Immersive historical environments
+- **Science Visualization:** Space, underwater, molecular environments
+- **Training Environments:** Safety training, orientation tours
+
+---
+
+## Key Features
+
+### One-Click YouTube Export
+- **Automated Workflow:** Click "Render & Export" and get upload-ready file
+- **No External Programs:** Everything happens in Blender
+- **Automatic Metadata:** VR360 spatial metadata injected automatically
+- **Optimized Settings:** YouTube-recommended specs applied automatically
+
+### Simple Camera Setup
+- **Single Equirectangular Camera:** Full 360° × 180° coverage
+- **2:1 Aspect Ratio:** Standard equirectangular format
+- **No Compositor Needed:** Direct render to video
+- **Easy Positioning:** Simple camera placement at viewpoint
+
+### GPU Optimized
+- **NVIDIA OptiX:** Automatic GPU detection and optimization
+- **AMD HIP Support:** Works with AMD cards too
+- **Adaptive Sampling:** Faster renders with quality preservation
+- **Path Guiding:** Blender 5.0+ intelligent sampling
+
+### YouTube Ready
+- **H.265 Encoding:** Efficient high-quality video compression
+- **8K Support:** Up to 7680×3840 resolution
+- **60fps Rendering:** Smooth motion for VR
+- **Spatial Metadata:** Automatic VR360 detection on YouTube
+
+---
+
+## Workflow
+
+### Quick Start (2 Steps)
+
+1. **Create Camera & Scene**
+   - Click "Add VR360 Camera & Scene" in the VR Production Toolkit panel
+   - Camera appears at eye level (1.6m) with proper equirectangular settings
+   - Scene includes lighting and background
+
+2. **Render & Export to YouTube**
+   - Click "Render & Export to YouTube"
+   - Get `vr360_youtube.mp4` ready for upload
+   - Upload directly to YouTube - VR360 detected automatically!
+
+### Detailed Workflow
+
+#### Step 1: Camera & Scene Creation
+```
+VR Production Toolkit Panel
+├── Camera Settings
+│   ├── Resolution: YouTube 8K (7680×3840)
+│   ├── Frame Rate: 60fps
+│   └── Camera Height: 1.6m (eye level)
+└── [Add VR360 Camera & Scene] button
+```
+
+**What Gets Created:**
+- Camera: `VR360_Camera` (equirectangular projection)
+- Reference sphere for scale
+- Cyclorama background (floor + wall)
+- 3-point lighting setup
+- Organized in `VR_Cameras` collection
+
+#### Step 2: Scene Setup
+- Add environment, objects, characters
+- Set up additional lighting if needed
+- Add materials and textures
+- **Keep camera level** (no tilt = no motion sickness)
+- **Camera should be static** (360° videos work best without movement)
+
+#### Step 3: Render Settings
+**Automatic (when you click "Render & Export"):**
+- Render engine: Cycles
+- Device: GPU (OptiX/HIP)
+- Samples: 512 (adjustable via preset)
+- Denoising: OptiX
+- Output: H.265, 150Mbps, 60fps
+- Metadata: VR360 spatial metadata injected
+
+**Manual Override Available:**
+- Preview preset: 256 samples, faster
+- Production preset: 512 samples, balanced
+- Final preset: 1024 samples, highest quality
+
+#### Step 4: Output
+**One-Click Export:**
+```
+Click "Render & Export to YouTube"
+    ↓
+Progress bar shows:
+├── Rendering VR360... (100%)
+├── Encoding H.265...
+├── Injecting VR360 Metadata...
+└── Done! File: vr360_youtube.mp4
+```
+
+**Output File:**
+- Format: MP4 (H.265/HEVC)
+- Resolution: 7680×3840 (2:1 ratio)
+- Frame Rate: 60fps
+- Bitrate: 150Mbps
+- Metadata: VR360 spatial metadata included
+- **Ready for YouTube upload!**
+
+---
+
+## Technical Specifications
+
+### Camera Parameters
+
+| Parameter | Default | Range | Notes |
+|-----------|---------|-------|-------|
+| **Projection** | Equirectangular | - | Standard VR360 format |
+| **FOV** | 360° × 180° | - | Full sphere coverage |
+| **Camera Height** | 1.6m | 1.4-1.8m | Eye level (sitting/standing) |
+| **Aspect Ratio** | 2:1 | - | Required for equirectangular |
+
+### Resolution Presets
+
+| Preset | Resolution | Frame Rate | Use Case |
+|--------|-----------|------------|----------|
+| **YouTube 4K** | 3840×2160 | 60fps | Minimum quality |
+| **YouTube 5K** | 5120×2560 | 60fps | Good quality |
+| **YouTube 8K** ⭐ | 7680×3840 | 60fps | **Recommended** |
+| **Meta Quest** | 5760×2880 | 72fps | Quest optimized |
+| **Custom** | User-defined | User | Advanced users |
+
+⭐ = Default preset (best quality for VR360)
+
+### Render Settings
+
+**Quality Presets:**
+
+| Preset | Samples | Denoising | Render Time | Use Case |
+|--------|---------|-----------|-------------|----------|
+| **Preview** | 128-256 | Yes | ~1x realtime | Quick preview |
+| **Production** ⭐ | 512 | Yes | ~5x realtime | **Default** |
+| **Final** | 1024+ | Optional | ~10x realtime | Final delivery |
+
+**GPU Optimization:**
+- Auto-detect: NVIDIA OptiX, AMD HIP, or CPU fallback
+- Tile size: 512×512 (GPU optimal)
+- Persistent data: Enabled
+- Adaptive sampling: Enabled (0.01 threshold)
+- Path guiding: Enabled (Blender 5.0+)
+
+### Output Formats
+
+**YouTube (Default):**
+- Container: MP4
+- Video: H.265/HEVC, 150Mbps
+- Audio: AAC, 384kbps, 48kHz
+- Metadata: VR360 spatial metadata
+
+**Master Archive:**
+- Container: MOV
+- Video: ProRes 422 HQ
+- Audio: Uncompressed PCM
+- Metadata: VR360 spatial metadata
+
+---
+
+## Concepts & Understanding
+
+### Equirectangular Projection
+
+The standard projection format for 360° video.
+
+**How it works:**
+- 360° horizontal (full circle around)
+- 180° vertical (from top to bottom)
+- 2:1 aspect ratio (width is double height)
+- Rectangular image unwraps to sphere
+
+**Why 2:1 ratio:**
+```
+360° horizontal ÷ 180° vertical = 2:1
+```
+
+**Visualization:**
+```
+Top pole (stretched)
+┌─────────────────────┐
+│   Equator (normal)  │ ← Natural scale
+└─────────────────────┘
+Bottom pole (stretched)
+```
+
+Poles are stretched horizontally, equator is natural scale.
+
+### Monoscopic vs Stereoscopic
+
+**Monoscopic (This Camera):**
+- ✅ Single viewpoint
+- ✅ No depth perception
+- ✅ Simpler, faster rendering
+- ✅ Half the file size
+- ✅ No stereo mismatch issues
+- ✅ Perfect for environments
+
+**Stereoscopic (VR360 Stereo):**
+- Two cameras (left/right eyes)
+- Depth perception (3D)
+- More complex, slower rendering
+- Larger file sizes
+- Potential stereo comfort issues
+- Better for interactive content
+
+**When to use mono:**
+- Environments and locations
+- Tours and walkthroughs
+- Landscapes and nature
+- Architecture and real estate
+- Any content where depth is less important
+
+**When to use stereo:**
+- Interactive experiences
+- Close subject interaction
+- Games and simulations
+- Content where depth matters
+
+### 360° Coverage
+
+Unlike VR180 (front 180°), VR360 captures **everything**:
+
+**360° means:**
+- Viewer can look in **any direction**
+- Front, back, left, right, up, down
+- No "safe zone" - everything is visible
+- Lighting must work from all angles
+- No hiding lights, cameras, crew
+
+**Design implications:**
+- Can't hide anything behind camera
+- Background visible in all directions
+- Lighting challenges (360° coverage)
+- Props/set must work from all angles
+
+---
+
+## Best Practices
+
+### Camera Placement
+
+✅ **DO:**
+- Keep camera at natural viewpoint (1.6m eye level)
+- **Keep camera PERFECTLY level** (critical - no tilt!)
+- Use static camera (movement usually unnecessary)
+- Position at viewer's natural position
+- Check horizon line is level
+
+❌ **DON'T:**
+- Tilt camera even slightly (instant motion sickness)
+- Move camera rapidly (nauseating in 360°)
+- Place camera at awkward heights
+- Forget that viewer sees EVERYTHING
+
+**⚠️ CRITICAL: Camera Leveling**
+
+Even **2° tilt** causes viewer discomfort in VR360.
+
+**Why It Matters:**
+- Tilted horizon visible in ALL directions
+- Cannot be hidden (360° coverage)
+- Causes severe motion sickness
+- Cannot be fixed in post-processing
+
+**Best Practice:**
+- Ensure camera rotation X and Y = 0°
+- Only rotate on Z axis (panning) if needed
+- Use horizon indicator in viewport
+- Add-on warns if camera is tilted
+
+### Content Design for 360°
+
+✅ **DO:**
+- Design for 360° viewing (all directions)
+- Create points of interest around viewer
+- Guide attention with lighting and composition
+- Use spatial audio to direct attention
+- Think about what's above and below too
+
+❌ **DON'T:**
+- Put all content in one direction
+- Ignore what's behind viewer
+- Use rapid cuts (jarring in VR)
+- Forget about zenith and nadir
+
+**Pro Tip:** Place your most important content in front (where viewer starts), but reward exploration in other directions.
+
+### Lighting for 360°
+
+✅ **DO:**
+- Use environmental/HDRI lighting
+- Hide light sources creatively
+- Even, omnidirectional lighting
+- Use emissive materials for visible lights
+- Consider lighting from all angles
+
+❌ **DON'T:**
+- Use visible area lights (hard to hide)
+- Create strong directional shadows
+- Forget viewer sees 360°
+- Use obvious studio lighting
+
+**Lighting Strategies:**
+1. **HDRI Environments:** Best for outdoor/natural
+2. **Emissive Geometry:** Light sources in scene
+3. **Portal Lights:** Windows, doors as light sources
+4. **Ambient + Subtle Directional:** Soft overall with subtle direction
+
+### Zenith and Nadir (Top and Bottom)
+
+**The poles of your 360° sphere:**
+
+**Zenith (Top):**
+- What viewer sees looking up
+- Often sky, ceiling, tree canopy
+- Less critical but still visible
+- Stretched in equirectangular
+
+**Nadir (Bottom):**
+- What viewer sees looking down
+- Often ground, floor, water
+- **Common issue:** Camera rig visible
+- **Solution:** Paint out or use empty floor
+
+**Pro Tip:** Put camera tripod/rig logo at nadir - viewers rarely look straight down, and it's expected.
+
+### Performance
+
+✅ **DO:**
+- Use GPU rendering (OptiX/HIP)
+- Enable denoising
+- Start with Preview preset
+- Optimize environment geometry
+
+❌ **DON'T:**
+- Use excessive polygon count
+- Skip GPU acceleration
+- Render full animation without test
+- Forget VR360 renders faster than stereo
+
+**Performance Note:** VR360 mono renders approximately **2× faster** than VR180 stereo (only one camera vs. two).
+
+---
+
+## Presets
+
+### Scene Presets
+
+**Museum Gallery:**
+- Soft overhead lighting
+- Neutral walls
+- Art on walls in all directions
+- Clean floor (nadir)
+- Camera at 1.6m (standing)
+
+**Outdoor Landscape:**
+- HDRI sky environment
+- Natural terrain 360°
+- Environmental lighting
+- Camera at 1.7m (standing on ground)
+
+**Real Estate Interior:**
+- Window portal lights
+- Furnished room 360°
+- Clean floor
+- Camera at 1.6m (eye level)
+
+**Virtual Showroom:**
+- Studio-style overhead lighting
+- Reflective floor
+- Products around perimeter
+- Camera at 1.6m (viewer standing)
+
+---
+
+## Troubleshooting
+
+### Issue: Video not showing as VR360 on YouTube
+
+**Symptoms:**
+- Video plays as flat 2D
+- Looks stretched and distorted
+- No VR button in YouTube player
+
+**Solutions:**
+1. ✅ Verify metadata was injected (check add-on log)
+2. ✅ Wait up to 1 hour after upload (YouTube processing)
+3. ✅ Check resolution is 2:1 ratio (e.g., 7680×3840)
+4. ✅ Re-render with "Verify Metadata" option enabled
+
+### Issue: Stretched or distorted poles
+
+**Symptoms:**
+- Top and bottom of sphere very stretched
+- Objects near poles look weird
+- Distortion in equirectangular image
+
+**Solutions:**
+1. ✅ **This is normal for equirectangular projection**
+2. ✅ Avoid placing important content near poles
+3. ✅ Content looks correct in VR headset
+4. ✅ Use sphere preview in Blender to check
+
+**Note:** Pole stretching is inherent to equirectangular format. It looks weird as a flat image but correct in VR.
+
+### Issue: Motion sickness reports
+
+**Symptoms:**
+- Viewers feel nauseous
+- Dizziness
+- Disorientation
+
+**Solutions:**
+1. ✅ Ensure camera is level (no tilt)
+2. ✅ Make camera completely static
+3. ✅ Increase frame rate to 60fps
+4. ✅ Avoid any camera movement
+5. ✅ Test in actual VR headset
+
+### Issue: Low quality / blurry in headset
+
+**Symptoms:**
+- Blurry when viewed in VR
+- Pixelated
+- Low detail
+
+**Solutions:**
+1. ✅ Increase resolution to 7680×3840 (8K)
+2. ✅ Use Production or Final render preset
+3. ✅ Increase bitrate to 150Mbps+
+4. ✅ Wait for YouTube to process high-quality version
+5. ✅ 360° spreads pixels over full sphere - higher res needed
+
+**Note:** VR360 needs higher resolution than flat video because pixels are spread over entire sphere.
+
+### Issue: Camera rig visible at nadir
+
+**Symptoms:**
+- Tripod/stand visible when looking down
+- Objects at camera location visible
+
+**Solutions:**
+1. ✅ Don't place geometry at camera position
+2. ✅ Use empty floor texture
+3. ✅ Paint out in post (or Blender compositor)
+4. ✅ Place subtle logo/watermark at nadir
+
+---
+
+## VR360 Mono vs VR180 Stereo
+
+| Feature | VR360 Mono | VR180 Stereo |
+|---------|-----------|--------------|
+| **Field of View** | 360° × 180° (full sphere) | 180° × 180° (hemisphere) |
+| **Stereoscopic** | No (2D) | Yes (3D) |
+| **Cameras** | 1 camera | 2 cameras (L/R) |
+| **Render Time** | Faster (~50% of stereo) | Slower (2 eyes) |
+| **File Size** | Smaller | Larger (2× image data) |
+| **Depth Perception** | None | Yes |
+| **Complexity** | Simple | More complex |
+| **Best For** | Environments, tours, landscapes | Interactive, close subjects |
+| **Motion Sickness** | Lower risk | Higher risk (stereo issues) |
+| **Resolution Needed** | 8K (7680×3840) | 5.7K (5760×2880) |
+
+**Choose VR360 Mono when:**
+- Content is environmental
+- Depth perception not critical
+- Want simpler workflow
+- Need faster renders
+- Smaller file sizes important
+
+**Choose VR180 Stereo when:**
+- Depth perception important
+- Close subject interaction
+- Front-facing content only
+- Higher pixel density desired
+
+---
+
+## Why Blender VR360?
+
+### Advantages Over Real 360° Cameras
+
+**Perfect Quality:**
+- ✅ No lens stitching (real 360 cameras stitch 2-6 lenses)
+- ✅ No stitch lines or artifacts
+- ✅ Perfect equirectangular projection
+- ✅ No chromatic aberration
+- ✅ Clean, noise-free (with denoising)
+
+**Unlimited Flexibility:**
+- ✅ Change anything and re-render
+- ✅ Adjust lighting after "shooting"
+- ✅ Modify environment anytime
+- ✅ Iterate infinitely
+
+**Cost:**
+- Real 360° cameras: $300-$5,000+
+- Blender + Add-on: **Free** ✅
+
+**Workflow:**
+- Real cameras: Shoot → Stitch → Process → Export
+- Blender: Render → **Done** ✅ (direct to YouTube format)
+
+**The Trade-off:**
+- ❌ Can't capture real-world environments
+- ✅ Perfect for CG environments, architecture, virtual worlds
+
+---
+
+## Examples
+
+### Example 1: Virtual Museum Tour
+
+```
+1. Create VR360 Camera & Scene
+2. Use Museum Gallery preset
+3. Model gallery space with art on walls
+4. Add portal window lighting
+5. Render at 8K, 60fps
+6. Upload to YouTube
+```
+
+**Result:** Immersive museum tour viewers can explore.
+
+### Example 2: Architectural Visualization
+
+```
+1. Create VR360 Camera & Scene
+2. Import architectural model
+3. Position camera in room center
+4. Use Real Estate Interior preset
+5. Render at 8K for maximum detail
+```
+
+**Result:** Clients can "stand inside" the designed space.
+
+### Example 3: Nature Environment
+
+```
+1. Create VR360 Camera & Scene
+2. Use Outdoor Landscape preset
+3. Add HDRI sky
+4. Create terrain, trees, environment
+5. Static camera, let viewer explore
+```
+
+**Result:** Immersive nature experience.
+
+---
+
+## Tips & Tricks
+
+### Getting the Best Quality
+
+1. **8K is standard for VR360** - Lower resolutions look pixelated
+2. **60fps minimum** - VR benefits from high frame rates
+3. **Static camera** - Movement rarely needed in 360°
+4. **Even lighting** - Fewer artifacts, cleaner render
+5. **Test in VR headset** - Flat preview doesn't show true quality
+
+### Faster Workflows
+
+1. **VR360 mono is fast** - Single camera, direct render
+2. **GPU essential** - 10-20× faster than CPU
+3. **Preview renders** - Test 10 frames before full render
+4. **Optimize geometry** - Viewer sees everything, but from distance
+5. **Reuse environments** - Save as asset library
+
+### Creative Techniques
+
+1. **Reward Exploration** - Place interesting details in all directions
+2. **Spatial Audio** - Guide attention with 3D sound
+3. **Multiple Viewpoints** - Render from different spots, let viewer choose
+4. **Time of Day** - Render same location at different times
+5. **Seasonal Variations** - Same environment, different seasons
+
+### Handling Zenith and Nadir
+
+**Zenith (Top):**
+- Use sky HDRI
+- Or painted ceiling
+- Or procedural sky
+- Less critical, but should look good
+
+**Nadir (Bottom):**
+- Clean floor texture
+- Or grass/ground
+- Hide camera rig
+- Can place subtle logo here
+
+---
+
+## Related Components
+
+- **VR180 Fisheye Camera** - For stereoscopic 180° content
+- **VR360 Stereo Camera** - For stereoscopic 360° (coming soon)
+- **Standard Camera** - For traditional flat video
+- **Lighting Rigs** - Pre-configured lighting setups
+- **Cyclorama Setup** - Professional background staging
+
+---
+
+## Resources
+
+### Official Specifications
+- [YouTube VR360 Help](https://support.google.com/youtube/answer/6178631)
+- [Google Spatial Media](https://github.com/google/spatial-media)
+- [Blender Cycles Cameras](https://docs.blender.org/manual/en/latest/render/cycles/object_settings/cameras.html)
+
+### Community
+- [Blender VR Production Discord](#)
+- [YouTube VR Creators Forum](https://support.google.com/youtube/community)
+- [r/360video](https://reddit.com/r/360video)
+
+### Learning
+- [VR360 Best Practices](#)
+- [Equirectangular Projection Guide](#)
+- [YouTube VR Upload Guide](https://support.google.com/youtube/answer/6178631)
+
+---
+
+## Version History
+
+- **v1.0** (Planning) - Initial specification
+  - YouTube-optimized workflow
+  - Automated metadata injection
+  - One-click export
+  - Simplified 2-step process
+
+---
+
+**Next:** See technical implementation:
+- [Part 1: Overview & Data Model](./vr360mono-tech-01-overview.mdx)
+- [Part 2: Core Implementation](./vr360mono-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./vr360mono-tech-03-operators.mdx)
+- [Part 4: Reference & Testing](./vr360mono-tech-04-reference.mdx)

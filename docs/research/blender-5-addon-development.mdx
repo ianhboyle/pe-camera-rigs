@@ -1,0 +1,1041 @@
+---
+title: Blender 5.0 Addon Development - Best Practices
+description: Comprehensive guide for developing addons for Blender 5.0+
+status: In Progress
+priority: High
+last_updated: 2025-12-07
+---
+
+# Blender 5.0 Addon Development - Best Practices
+
+**Blender 5.0 Release Date:** November 18, 2025
+
+This guide covers best practices for developing addons for Blender 5.0 and beyond, including API changes, structure patterns, testing strategies, and compatibility considerations.
+
+---
+
+## 🚧 TODO: Pages to Check After Installing Playwright
+
+The following official documentation pages returned 403 errors and need to be fetched:
+
+- [ ] https://developer.blender.org/docs/handbook/extensions/addon_guidelines/
+- [ ] https://developer.blender.org/docs/release_notes/5.0/python_api/
+- [ ] https://developer.blender.org/docs/handbook/extensions/addon_dev_setup/
+- [ ] https://docs.blender.org/manual/en/latest/advanced/scripting/addon_tutorial.html
+- [ ] https://docs.blender.org/api/current/info_best_practice.html
+
+**Action:** After installing Playwright, fetch these pages and integrate additional details.
+
+---
+
+## Table of Contents
+
+1. [Critical API Changes in Blender 5.0](#critical-api-changes-in-blender-50)
+2. [Addon Structure & Organization](#addon-structure--organization)
+3. [Testing & CI/CD Best Practices](#testing--cicd-best-practices)
+4. [Registration Patterns](#registration-patterns)
+5. [Migration Guide: 4.x → 5.0](#migration-guide-4x--50)
+6. [Performance Best Practices](#performance-best-practices)
+7. [Compatibility Considerations](#compatibility-considerations)
+8. [Development Workflow](#development-workflow)
+
+---
+
+## Critical API Changes in Blender 5.0
+
+### Removed/Deprecated APIs
+
+#### 1. **Action API Changes**
+
+```python
+# ❌ REMOVED in 5.0
+poselib.create_pose_asset(activate_new_action=True)  # Parameter removed (deprecated since 4.5)
+
+# ❌ REMOVED in 5.0
+context.space_data.action  # Removed from Dope Sheet context
+
+# ✅ CORRECT in 5.0
+context.active_action  # Use this instead
+```
+
+#### 2. **GPU Texture API Changes**
+
+```python
+# ❌ REMOVED in 5.0
+texture_id = image.bindcode  # Deprecated property removed
+
+# ✅ CORRECT in 5.0
+import gpu
+texture = gpu.texture.from_image(image)
+# Use gpu.types.GPUTexture type
+```
+
+#### 3. **EEVEE Render Engine Identifier**
+
+```python
+# ❌ OLD (Blender 4.x)
+if scene.render.engine == 'BLENDER_EEVEE_NEXT':
+    pass
+
+# ✅ NEW (Blender 5.0)
+if scene.render.engine == 'BLENDER_EEVEE':
+    pass
+```
+
+#### 4. **Render Pass Naming**
+
+Render passes renamed to avoid abbreviations:
+
+| Old Name (4.x) | New Name (5.0) |
+|----------------|----------------|
+| `DiffCol` | `Diffuse Color` |
+| `IndexMA` | `Material Index` |
+| `Z` | `Depth` |
+
+```python
+# ✅ Update render pass references
+if pass_name == 'Depth':  # Not 'Z'
+    process_depth_pass()
+```
+
+---
+
+### New Features & APIs
+
+#### 1. **Enhanced F-Curve Creation**
+
+```python
+# ✅ NEW in 5.0: group_name parameter
+fcurve = channelbag.fcurves.new(
+    data_path="location",
+    index=0,
+    group_name="Transform"  # NEW: Auto-creates group if needed
+)
+
+fcurve = action.fcurve_ensure_for_datablock(
+    datablock=obj,
+    data_path="location",
+    index=0,
+    group_name="Transform"  # NEW: Auto-creates group if needed
+)
+```
+
+#### 2. **Native Buffer Protocol for Mathutils**
+
+```python
+# ⚠️ BEHAVIOR CHANGE in 5.0
+from mathutils import Vector
+
+vec = Vector((1.0, 2.0, 3.0))
+
+# Type changed from float64 to float32
+# This affects memory layout and interop with numpy/other libraries
+import numpy as np
+arr = np.array(vec)  # Now float32 instead of float64
+```
+
+#### 3. **Shader Node Tree API (For Render Engines)**
+
+```python
+# ✅ NEW in 5.0: Inline shader node tree API
+# Supports closures, bundles, repeat zones
+# Automatically inlines node groups and eliminates reroute/muted nodes
+
+# (Primarily for external render engine developers)
+inlined_tree = node_tree.inline_for_shader()
+```
+
+---
+
+## Addon Structure & Organization
+
+### Single-File vs Multi-File Addons
+
+#### When to Use Single File
+
+**Good for:**
+- Simple addons with 1-3 operators
+- Single panel/menu addons
+- Less than ~500 lines of code
+- Quick utility scripts
+
+```python
+# my_addon.py
+
+bl_info = {
+    "name": "Simple Utility",
+    "author": "Your Name",
+    "version": (1, 0, 0),
+    "blender": (5, 0, 0),
+    "category": "Object",
+}
+
+import bpy
+
+class OBJECT_OT_simple_operator(bpy.types.Operator):
+    bl_idname = "object.simple_operator"
+    bl_label = "Simple Operator"
+
+    def execute(self, context):
+        # Implementation
+        return {'FINISHED'}
+
+def register():
+    bpy.utils.register_class(OBJECT_OT_simple_operator)
+
+def unregister():
+    bpy.utils.unregister_class(OBJECT_OT_simple_operator)
+
+if __name__ == "__main__":
+    register()
+```
+
+#### When to Use Multi-File Structure
+
+**Good for:**
+- Complex addons with multiple features
+- Team collaboration
+- More than ~500 lines of code
+- Addons with operators, panels, properties, and utilities
+- Addons requiring testing
+
+**Recommended Structure:**
+
+```
+my_addon/
+├── __init__.py           # Main registration, bl_info
+├── operators.py          # All operators
+├── panels.py             # UI panels
+├── properties.py         # Property groups
+├── utils.py              # Helper functions
+├── preferences.py        # Addon preferences
+├── presets/              # Preset files
+│   └── default.py
+├── lib/                  # Bundled third-party libraries
+│   └── external_lib/
+└── tests/                # Unit tests
+    ├── __init__.py
+    ├── test_operators.py
+    └── test_utils.py
+```
+
+---
+
+### Multi-File Registration Pattern
+
+#### `__init__.py` - Main Entry Point
+
+```python
+# __init__.py
+
+bl_info = {
+    "name": "VR Production Toolkit",
+    "author": "Your Name",
+    "version": (1, 0, 0),
+    "blender": (5, 0, 0),
+    "location": "View3D > Sidebar > VR Production",
+    "description": "Tools for VR180 production",
+    "category": "Render",
+}
+
+# Import reloading support
+if "bpy" in locals():
+    import importlib
+    if "operators" in locals():
+        importlib.reload(operators)
+    if "panels" in locals():
+        importlib.reload(panels)
+    if "properties" in locals():
+        importlib.reload(properties)
+    if "preferences" in locals():
+        importlib.reload(preferences)
+    if "utils" in locals():
+        importlib.reload(utils)
+
+import bpy
+from . import operators
+from . import panels
+from . import properties
+from . import preferences
+from . import utils
+
+# List of modules to register (in order)
+modules = [
+    properties,
+    operators,
+    panels,
+    preferences,
+]
+
+def register():
+    """Register all addon classes and properties"""
+    for module in modules:
+        module.register()
+
+    # Register properties on scene
+    bpy.types.Scene.my_addon_settings = bpy.props.PointerProperty(
+        type=properties.MyAddonSettings
+    )
+
+def unregister():
+    """Unregister all addon classes and properties"""
+    # Delete scene properties
+    del bpy.types.Scene.my_addon_settings
+
+    # Unregister modules in reverse order
+    for module in reversed(modules):
+        module.unregister()
+
+if __name__ == "__main__":
+    register()
+```
+
+#### `operators.py` - Operators Module
+
+```python
+# operators.py
+
+import bpy
+
+classes = []
+
+class MYADDON_OT_example_operator(bpy.types.Operator):
+    """Example operator with proper naming convention"""
+    bl_idname = "myaddon.example_operator"
+    bl_label = "Example Operator"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        self.report({'INFO'}, "Operator executed")
+        return {'FINISHED'}
+
+classes.append(MYADDON_OT_example_operator)
+
+# Add more operators...
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+#### `properties.py` - Property Groups
+
+```python
+# properties.py
+
+import bpy
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    BoolProperty,
+    EnumProperty,
+    StringProperty,
+)
+from bpy.types import PropertyGroup
+
+classes = []
+
+class MyAddonSettings(PropertyGroup):
+    """Main settings for the addon"""
+
+    enabled: BoolProperty(
+        name="Enable Feature",
+        description="Enable the main feature",
+        default=True,
+    )
+
+    strength: FloatProperty(
+        name="Strength",
+        description="Effect strength",
+        default=1.0,
+        min=0.0,
+        max=10.0,
+        soft_min=0.0,
+        soft_max=5.0,
+    )
+
+    mode: EnumProperty(
+        name="Mode",
+        description="Operation mode",
+        items=[
+            ('MODE_A', "Mode A", "First mode"),
+            ('MODE_B', "Mode B", "Second mode"),
+            ('MODE_C', "Mode C", "Third mode"),
+        ],
+        default='MODE_A',
+    )
+
+classes.append(MyAddonSettings)
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+#### `panels.py` - UI Panels
+
+```python
+# panels.py
+
+import bpy
+
+classes = []
+
+class MYADDON_PT_main_panel(bpy.types.Panel):
+    """Main panel in 3D viewport sidebar"""
+    bl_label = "My Addon"
+    bl_idname = "MYADDON_PT_main_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'My Addon'
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.my_addon_settings
+
+        # Settings
+        box = layout.box()
+        box.label(text="Settings", icon='PREFERENCES')
+        box.prop(settings, "enabled")
+        box.prop(settings, "strength")
+        box.prop(settings, "mode")
+
+        # Operators
+        layout.separator()
+        layout.operator("myaddon.example_operator", icon='PLAY')
+
+classes.append(MYADDON_PT_main_panel)
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+## Testing & CI/CD Best Practices
+
+### Why Testing Matters for Blender 5.0
+
+From recent findings (Dec 2025): **"The main culprit of the 'Not working in Blender 5' problem is API changes and behavior differences."**
+
+### Testing Strategy
+
+#### 1. **Logic Tests** (Unit Tests)
+
+Run frequently during development.
+
+```python
+# tests/test_operators.py
+
+import unittest
+import sys
+import os
+
+# Add addon to path
+addon_path = os.path.dirname(os.path.dirname(__file__))
+if addon_path not in sys.path:
+    sys.path.append(addon_path)
+
+import bpy
+from my_addon import operators
+
+class TestOperators(unittest.TestCase):
+
+    def setUp(self):
+        """Reset scene before each test"""
+        bpy.ops.wm.read_homefile(use_empty=True)
+
+    def test_operator_execution(self):
+        """Test operator executes without error"""
+        result = bpy.ops.myaddon.example_operator()
+        self.assertEqual(result, {'FINISHED'})
+
+    def test_operator_with_settings(self):
+        """Test operator respects settings"""
+        settings = bpy.context.scene.my_addon_settings
+        settings.strength = 5.0
+
+        result = bpy.ops.myaddon.example_operator()
+        self.assertEqual(result, {'FINISHED'})
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+**Run Logic Tests:**
+
+```bash
+# Run tests with Blender in background mode
+blender --background --python tests/test_operators.py
+```
+
+#### 2. **E2E Tests** (End-to-End)
+
+Run occasionally during development, and always in CI.
+
+```python
+# tests/test_e2e_workflow.py
+
+import unittest
+import bpy
+
+class TestE2EWorkflow(unittest.TestCase):
+
+    def test_complete_workflow(self):
+        """Test complete user workflow"""
+        # 1. Create test scene
+        bpy.ops.mesh.primitive_cube_add()
+        cube = bpy.context.active_object
+
+        # 2. Apply addon operator
+        result = bpy.ops.myaddon.example_operator()
+        self.assertEqual(result, {'FINISHED'})
+
+        # 3. Verify results
+        self.assertIsNotNone(cube)
+        # Add more assertions...
+
+    def test_ui_panel_display(self):
+        """Test UI panel appears correctly"""
+        # Switch to 3D view
+        for area in bpy.context.screen.areas:
+            if area.type == 'VIEW_3D':
+                with bpy.context.temp_override(area=area):
+                    # Test panel registration
+                    panels = [
+                        p for p in bpy.types.Panel.__subclasses__()
+                        if p.bl_idname.startswith('MYADDON_')
+                    ]
+                    self.assertGreater(len(panels), 0)
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+---
+
+### CI/CD with GitHub Actions
+
+**Test across multiple Blender versions:**
+
+```yaml
+# .github/workflows/test.yml
+
+name: Addon Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        blender-version: ['4.2', '5.0', '5.1']
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download Blender ${{ matrix.blender-version }}
+        run: |
+          # Download Blender based on version and OS
+          # (Implementation varies by OS)
+
+      - name: Run Logic Tests
+        run: |
+          blender --background --python tests/test_operators.py
+
+      - name: Run E2E Tests
+        run: |
+          blender --background --python tests/test_e2e_workflow.py
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-${{ matrix.blender-version }}-${{ matrix.os }}
+          path: test-results/
+```
+
+**Best Practice:** Test on both **Blender 4.2 LTS** and **Blender 5.0+** to ensure compatibility.
+
+---
+
+## Migration Guide: 4.x → 5.0
+
+### Step-by-Step Migration Process
+
+#### 1. Update `bl_info`
+
+```python
+bl_info = {
+    "name": "My Addon",
+    "author": "Your Name",
+    "version": (2, 0, 0),  # Increment major version
+    "blender": (5, 0, 0),  # Update minimum version
+    "category": "Object",
+}
+```
+
+#### 2. Fix Action API Usage
+
+```python
+# BEFORE (4.x)
+context.space_data.action
+
+# AFTER (5.0)
+context.active_action
+```
+
+#### 3. Update GPU Texture Code
+
+```python
+# BEFORE (4.x)
+import bpy
+
+def get_texture_id(image):
+    return image.bindcode
+
+# AFTER (5.0)
+import bpy
+import gpu
+
+def get_texture_id(image):
+    texture = gpu.texture.from_image(image)
+    return texture  # Returns GPUTexture object
+```
+
+#### 4. Update EEVEE Engine Checks
+
+```python
+# BEFORE (4.x)
+if context.scene.render.engine == 'BLENDER_EEVEE_NEXT':
+    # EEVEE-specific code
+
+# AFTER (5.0)
+if context.scene.render.engine == 'BLENDER_EEVEE':
+    # EEVEE-specific code
+```
+
+#### 5. Update Render Pass Names
+
+```python
+# BEFORE (4.x)
+render_passes = {
+    'DiffCol': 'diffuse_color',
+    'IndexMA': 'material_index',
+    'Z': 'depth',
+}
+
+# AFTER (5.0)
+render_passes = {
+    'Diffuse Color': 'diffuse_color',
+    'Material Index': 'material_index',
+    'Depth': 'depth',
+}
+```
+
+#### 6. Handle Mathutils Type Changes
+
+```python
+# BEFORE (4.x) - float64
+from mathutils import Vector
+import numpy as np
+
+vec = Vector((1.0, 2.0, 3.0))
+arr = np.array(vec, dtype=np.float64)
+
+# AFTER (5.0) - float32
+from mathutils import Vector
+import numpy as np
+
+vec = Vector((1.0, 2.0, 3.0))
+arr = np.array(vec)  # Already float32
+# Or explicitly:
+arr = np.array(vec, dtype=np.float32)
+```
+
+---
+
+## Performance Best Practices
+
+### 1. **Use Persistent Data for Animation**
+
+```python
+# Enable persistent data for faster animation rendering
+scene.cycles.use_persistent_data = True
+```
+
+### 2. **Batch Operations**
+
+```python
+# ❌ SLOW: Update scene for each operation
+for obj in objects:
+    obj.location.z += 1.0
+    bpy.context.view_layer.update()
+
+# ✅ FAST: Batch update after all operations
+for obj in objects:
+    obj.location.z += 1.0
+bpy.context.view_layer.update()
+```
+
+### 3. **Use bmesh for Mesh Operations**
+
+```python
+import bmesh
+
+# ✅ FAST: Use bmesh for complex mesh operations
+obj = bpy.context.active_object
+bm = bmesh.new()
+bm.from_mesh(obj.data)
+
+# Perform operations on bmesh
+for vert in bm.verts:
+    vert.co.z += 1.0
+
+# Write back to mesh
+bm.to_mesh(obj.data)
+bm.free()
+```
+
+### 4. **Minimize Context Overrides**
+
+```python
+# ❌ SLOW: Multiple context overrides
+for area in bpy.context.screen.areas:
+    if area.type == 'VIEW_3D':
+        with bpy.context.temp_override(area=area):
+            bpy.ops.view3d.camera_to_view()
+
+# ✅ FAST: Avoid when possible, use direct API
+# (Not always possible, but prefer direct manipulation)
+```
+
+### 5. **Cache Expensive Lookups**
+
+```python
+# ❌ SLOW: Repeated lookups
+class MyOperator(bpy.types.Operator):
+    def execute(self, context):
+        for i in range(1000):
+            mat = bpy.data.materials.get("MyMaterial")
+            # Use material...
+
+# ✅ FAST: Cache lookup
+class MyOperator(bpy.types.Operator):
+    def execute(self, context):
+        mat = bpy.data.materials.get("MyMaterial")
+        if mat is None:
+            return {'CANCELLED'}
+
+        for i in range(1000):
+            # Use cached material...
+```
+
+---
+
+## Compatibility Considerations
+
+### Supporting Multiple Blender Versions
+
+#### Version Detection
+
+```python
+import bpy
+
+def get_blender_version():
+    """Get Blender version as tuple"""
+    return bpy.app.version
+
+def is_blender_5_plus():
+    """Check if running Blender 5.0 or newer"""
+    return bpy.app.version >= (5, 0, 0)
+
+def is_blender_4_2_lts():
+    """Check if running Blender 4.2 LTS"""
+    return (4, 2, 0) <= bpy.app.version < (5, 0, 0)
+```
+
+#### Conditional API Usage
+
+```python
+import bpy
+
+class MyOperator(bpy.types.Operator):
+    bl_idname = "myaddon.my_operator"
+    bl_label = "My Operator"
+
+    def execute(self, context):
+        # Version-specific code
+        if bpy.app.version >= (5, 0, 0):
+            # Blender 5.0+ code
+            action = context.active_action
+        else:
+            # Blender 4.x code
+            action = context.space_data.action
+
+        return {'FINISHED'}
+```
+
+#### Graceful Degradation
+
+```python
+def get_gpu_texture(image):
+    """Get GPU texture with fallback"""
+    try:
+        # Blender 5.0+ method
+        import gpu
+        return gpu.texture.from_image(image)
+    except AttributeError:
+        # Blender 4.x fallback
+        return image.bindcode
+```
+
+---
+
+## Development Workflow
+
+### 1. **Enable Developer Extras**
+
+Edit → Preferences → Interface → Developer Extras
+
+This enables:
+- Tooltip Python references
+- Operator search with Python commands
+- UI debugging tools
+
+### 2. **Use System Console (Windows) / Terminal Output**
+
+- **Windows:** Window → Toggle System Console
+- **macOS/Linux:** Run Blender from terminal to see output
+
+### 3. **Quick Reload During Development**
+
+```python
+# Add to addon for quick development reload
+import bpy
+
+class MYADDON_OT_reload_addon(bpy.types.Operator):
+    """Reload addon during development"""
+    bl_idname = "myaddon.reload_addon"
+    bl_label = "Reload Addon"
+
+    def execute(self, context):
+        import importlib
+        import sys
+
+        # Get addon module name
+        addon_name = __name__.split('.')[0]
+
+        # Reload all submodules
+        for module_name in list(sys.modules.keys()):
+            if module_name.startswith(addon_name):
+                importlib.reload(sys.modules[module_name])
+
+        self.report({'INFO'}, "Addon reloaded")
+        return {'FINISHED'}
+```
+
+### 4. **Debugging with VS Code**
+
+Install `blender-vscode` extension and use:
+
+```python
+# In your addon code
+import debugpy
+
+# Start debug server
+debugpy.listen(5678)
+print("Waiting for debugger attach...")
+debugpy.wait_for_client()
+```
+
+Then attach VS Code debugger to port 5678.
+
+---
+
+## Naming Conventions
+
+### Operator ID Naming
+
+```python
+# Format: category.action_description
+# Use lowercase with underscores
+
+# ✅ GOOD
+bl_idname = "object.simple_rotate"
+bl_idname = "mesh.create_advanced_shape"
+bl_idname = "vr180.render_youtube"
+
+# ❌ BAD
+bl_idname = "MyOperator"  # No category
+bl_idname = "object.ROTATE"  # Uppercase
+bl_idname = "object-rotate"  # Hyphens instead of underscores
+```
+
+### Class Naming
+
+```python
+# Format: CATEGORY_TYPE_name
+# Use uppercase with underscores
+
+# ✅ GOOD
+class OBJECT_OT_simple_rotate(bpy.types.Operator):
+    pass
+
+class VIEW3D_PT_my_panel(bpy.types.Panel):
+    pass
+
+class MYADDON_MT_my_menu(bpy.types.Menu):
+    pass
+
+# ❌ BAD
+class SimpleRotate(bpy.types.Operator):  # No prefix
+class My_Operator(bpy.types.Operator):  # Wrong format
+```
+
+### Property Naming
+
+```python
+# Use lowercase with underscores
+# Use descriptive names
+
+# ✅ GOOD
+enabled: BoolProperty(name="Enabled")
+rotation_angle: FloatProperty(name="Rotation Angle")
+target_object: StringProperty(name="Target Object")
+
+# ❌ BAD
+e: BoolProperty(name="Enabled")  # Too short
+rotAngle: FloatProperty(name="Angle")  # camelCase
+```
+
+---
+
+## Error Handling
+
+### Operator Error Reporting
+
+```python
+class MYADDON_OT_example(bpy.types.Operator):
+    bl_idname = "myaddon.example"
+    bl_label = "Example"
+
+    def execute(self, context):
+        try:
+            # Your code here
+            if not self.validate_scene(context):
+                self.report({'ERROR'}, "Scene validation failed")
+                return {'CANCELLED'}
+
+            # Perform operation
+            self.do_operation(context)
+
+            self.report({'INFO'}, "Operation completed successfully")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Operation failed: {str(e)}")
+            return {'CANCELLED'}
+
+    def validate_scene(self, context):
+        """Validate scene state"""
+        if not context.active_object:
+            return False
+        return True
+
+    def do_operation(self, context):
+        """Perform the actual operation"""
+        pass
+```
+
+### Report Types
+
+```python
+# Available report types:
+self.report({'INFO'}, "Information message")
+self.report({'WARNING'}, "Warning message")
+self.report({'ERROR'}, "Error message")
+self.report({'ERROR_INVALID_INPUT'}, "Invalid input")
+self.report({'ERROR_INVALID_CONTEXT'}, "Invalid context")
+self.report({'ERROR_OUT_OF_MEMORY'}, "Out of memory")
+```
+
+---
+
+## Resources & References
+
+### Official Documentation
+
+- [Blender 5.0 Manual - Addon Tutorial](https://docs.blender.org/manual/en/latest/advanced/scripting/addon_tutorial.html)
+- [Blender Python API Documentation](https://docs.blender.org/api/current/index.html)
+- [Blender 5.0 Release Notes](https://developer.blender.org/docs/release_notes/5.0/)
+- [Blender 5.0 Python API Changes](https://developer.blender.org/docs/release_notes/5.0/python_api/)
+- [Addon Guidelines - Blender Developer Docs](https://developer.blender.org/docs/handbook/extensions/addon_guidelines/)
+
+### Community Resources
+
+- [Blender Developer Forum](https://devtalk.blender.org/)
+- [Blender StackExchange](https://blender.stackexchange.com/)
+- [Awesome Blender - Curated List](https://github.com/agmmnn/awesome-blender)
+
+### Development Articles
+
+- [Blender Addon Development Needs More DevOps](https://dev.to/unclepomedev/blender-addon-development-needs-more-devops-5c1e) (Dec 2025)
+
+---
+
+## Checklist: Publishing Your Addon
+
+Before releasing your addon:
+
+- [ ] Test on Blender 4.2 LTS and Blender 5.0+
+- [ ] All operators have proper error handling
+- [ ] UI tooltips are descriptive and helpful
+- [ ] `bl_info` metadata is complete and accurate
+- [ ] Code follows naming conventions
+- [ ] No deprecated APIs are used
+- [ ] Documentation/README is included
+- [ ] License file is included (recommend GPL for Blender addons)
+- [ ] Version number follows semantic versioning
+- [ ] Tests pass on all target Blender versions
+- [ ] Code is formatted consistently (consider using black/autopep8)
+
+---
+
+## Version History
+
+**v1.0** (2025-12-07)
+- Initial documentation based on Blender 5.0 release
+- API migration guide 4.x → 5.0
+- Testing and CI/CD best practices
+- Multi-file addon structure patterns
+
+---
+
+## Sources
+
+- [Add-on Tutorial - Blender 5.0 Manual](https://docs.blender.org/manual/en/latest/advanced/scripting/addon_tutorial.html)
+- [Blender 5.0: Python API](https://developer.blender.org/docs/release_notes/5.0/python_api/)
+- [Add-on Guidelines - Blender Developer Documentation](https://developer.blender.org/docs/handbook/extensions/addon_guidelines/)
+- [Blender Addon Development Needs More DevOps](https://dev.to/unclepomedev/blender-addon-development-needs-more-devops-5c1e)
+- [Blender 5.0 Release Notes](https://developer.blender.org/docs/release_notes/5.0/)
+- [GitHub - awesome-blender](https://github.com/agmmnn/awesome-blender)

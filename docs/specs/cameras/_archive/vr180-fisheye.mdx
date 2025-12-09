@@ -1,0 +1,755 @@
+---
+title: VR180 Fisheye Camera Rig
+description: Stereoscopic 180° fisheye camera rig for YouTube VR content
+status: Planning
+priority: High
+---
+
+# VR180 Fisheye Camera Rig
+
+**Status:** Planning
+**Priority:** High
+**Type:** Camera Rig
+**Target Platform:** YouTube VR, Meta Quest, Steam VR
+
+---
+
+## Overview
+
+The VR180 Fisheye Camera Rig creates a stereoscopic 180-degree virtual reality camera setup that mimics professional VR180 cameras like the Canon RF 5.2mm F2.8 L Dual Fisheye lens. It's designed for the **easiest possible workflow** from Blender to YouTube VR with zero external programs required.
+
+### What is VR180?
+
+VR180 is YouTube's stereoscopic VR format that captures a 180° front-facing field of view with separate left and right eye images, providing 3D depth perception when viewed in a VR headset.
+
+**Key Benefits:**
+- Higher pixel density than 360° (better image quality)
+- Captures what's in front of you (natural viewing)
+- Smaller file sizes than full 360°
+- Perfect for narrative content, interviews, performances
+- Native YouTube VR support
+
+---
+
+## Use Cases
+
+### Content Creators
+- **YouTube VR Videos:** Direct upload to YouTube with automatic VR detection
+- **Music Videos:** Immersive concert and performance recordings
+- **Interviews:** Engaging first-person perspective interviews
+- **Travel Vlogs:** Immersive destination experiences
+- **Educational Content:** Virtual field trips and demonstrations
+
+### 3D Artists & Studios
+- **Animated VR Content:** Render 3D animations for VR platforms
+- **Virtual Tours:** Architectural walkthroughs and real estate
+- **Product Visualization:** Immersive product showcases
+- **Art Installations:** Digital VR art experiences
+- **Training Simulations:** First-person training scenarios
+
+### Filmmakers
+- **VR Narrative Films:** Stereoscopic 180° storytelling
+- **Behind-the-Scenes:** Immersive BTS content
+- **Music Videos:** Artist performances in VR
+- **Experimental Cinema:** New forms of VR filmmaking
+
+---
+
+## Key Features
+
+### One-Click YouTube Export
+- **Automated Workflow:** Click "Render for YouTube" and get upload-ready file
+- **No External Programs:** Everything happens in Blender
+- **Automatic Metadata:** VR180 spatial metadata injected automatically
+- **Optimized Settings:** YouTube-recommended specs applied automatically
+
+### Professional Camera Rig
+- **Dual Fisheye Cameras:** Left and right eye with accurate IPD
+- **Canon RF 5.2mm Emulation:** Matches real-world VR180 cameras
+- **180° Field of View:** Full front-hemisphere coverage
+- **Parent Empty:** Easy rig positioning and animation
+
+### Intelligent Compositor
+- **Automatic SBS Combine:** Left/right eyes merged to side-by-side
+- **Per-Eye Denoising:** OptiX denoising on each eye before combining
+- **Direct H.265 Encoding:** YouTube-ready video format
+- **Real-time Preview:** See combined output while rendering
+
+### GPU Optimized
+- **NVIDIA OptiX:** Automatic GPU detection and optimization
+- **AMD HIP Support:** Works with AMD cards too
+- **Adaptive Sampling:** Faster renders with quality preservation
+- **Path Guiding:** Blender 5.0+ intelligent sampling
+
+---
+
+## Workflow
+
+### Quick Start (3 Steps)
+
+1. **Create Rig**
+   - Click "Create VR180 Rig" in the VR Production Toolkit panel
+   - Rig appears at eye level (1.6m height) with proper settings
+
+2. **Set Up Scene**
+   - Add your content, lighting, materials
+   - Camera is already configured for VR180
+
+3. **Render for YouTube**
+   - Click "Render for YouTube"
+   - Get `my_scene_youtube.mp4` ready for upload
+   - Upload directly to YouTube - VR detected automatically!
+
+### Detailed Workflow
+
+#### Step 1: Rig Creation
+```
+VR Production Toolkit Panel
+├── Camera Settings
+│   ├── Resolution: YouTube 5.7K (5760×2880)
+│   ├── IPD: 64mm (human average)
+│   ├── FOV: 190° (captures full 180° cleanly)
+│   └── Frame Rate: 60fps
+└── [Create VR180 Rig] button
+```
+
+**What Gets Created:**
+- Parent empty: `VR180_Rig` (position this to move entire rig)
+- Left camera: `VR180_Camera_Left` (at -32mm from center)
+- Right camera: `VR180_Camera_Right` (at +32mm from center)
+- Organized in `VR_Cameras` collection
+
+#### Step 2: Scene Setup
+- Add objects, characters, environment
+- Set up lighting (3-point preset available)
+- Add materials and textures
+- **Keep camera level** (no tilt = no motion sickness)
+- **Static or slow movement** (fast motion causes discomfort)
+
+#### Step 3: Render Settings
+**Automatic (when you click "Render for YouTube"):**
+- Render engine: Cycles
+- Device: GPU (OptiX/HIP)
+- Samples: 512 (adjustable via preset)
+- Denoising: OptiX per-eye
+- Output: H.265, 100Mbps, 60fps
+- Metadata: VR180 spatial metadata injected
+
+**Manual Override Available:**
+- Preview preset: 256 samples, faster
+- Production preset: 512 samples, balanced
+- Final preset: 1024 samples, highest quality
+
+#### Step 4: Output
+**One-Click Export:**
+```
+Click "Render for YouTube"
+    ↓
+Progress bar shows:
+├── Rendering Left Eye... (50%)
+├── Rendering Right Eye... (100%)
+├── Compositing SBS...
+├── Encoding H.265...
+├── Injecting VR180 Metadata...
+└── Done! File: my_scene_youtube.mp4
+```
+
+**Output File:**
+- Format: MP4 (H.265/HEVC)
+- Resolution: 5760×2880 (SBS)
+- Frame Rate: 60fps
+- Bitrate: 100Mbps
+- Metadata: VR180 spatial metadata included
+- **Ready for YouTube upload!**
+
+---
+
+## Technical Specifications
+
+### Camera Parameters
+
+| Parameter | Default | Range | Notes |
+|-----------|---------|-------|-------|
+| **IPD** | 64mm | 60-68mm | Interpupillary distance |
+| **FOV** | 190° | 180-200° | Fisheye field of view |
+| **Focal Length** | 5.2mm | 4-8mm | Matches Canon dual fisheye |
+| **Camera Height** | 1.6m | 1.4-1.8m | Eye level (sitting/standing) |
+| **Convergence** | Parallel | - | Not toed-in (VR standard) |
+
+### Resolution Presets
+
+| Preset | SBS Resolution | Per-Eye | Frame Rate | Use Case |
+|--------|---------------|---------|------------|----------|
+| **YouTube 4K** | 3840×1920 | 1920×1920 | 60fps | Standard quality |
+| **YouTube 5.7K** ⭐ | 5760×2880 | 2880×2880 | 60fps | **Recommended** |
+| **YouTube 8K** | 7680×3840 | 3840×3840 | 30fps | Highest quality |
+| **Meta Quest** | 5120×2560 | 2560×2560 | 72fps | Quest optimized |
+| **Custom** | User-defined | User-defined | User | Advanced users |
+
+⭐ = Default preset (best balance of quality and file size)
+
+### Render Settings
+
+**Quality Presets:**
+
+| Preset | Samples | Denoising | Render Time | Use Case |
+|--------|---------|-----------|-------------|----------|
+| **Preview** | 128-256 | Yes | ~2x realtime | Quick preview |
+| **Production** ⭐ | 512 | Yes | ~10x realtime | **Default** |
+| **Final** | 1024+ | Optional | ~20x realtime | Final delivery |
+
+**GPU Optimization:**
+- Auto-detect: NVIDIA OptiX, AMD HIP, or CPU fallback
+- Tile size: 512×512 (GPU optimal)
+- Persistent data: Enabled
+- Adaptive sampling: Enabled (0.01 threshold)
+- Path guiding: Enabled (Blender 5.0+)
+
+### Output Formats
+
+**YouTube (Default):**
+- Container: MP4
+- Video: H.265/HEVC, 100Mbps
+- Audio: AAC, 384kbps, 48kHz
+- Metadata: VR180 spatial metadata
+
+**Master Archive:**
+- Container: MOV
+- Video: ProRes 422 HQ or Apple ProRes 4444
+- Audio: Uncompressed PCM
+- Metadata: VR180 spatial metadata
+
+---
+
+## Concepts & Understanding
+
+### Interpupillary Distance (IPD)
+
+The distance between human eyes, crucial for comfortable 3D viewing.
+
+**Standard:** 64mm (average adult)
+**Range:** 60-68mm (most comfortable)
+**Rule of Thumb:**
+- Closer objects → smaller IPD (60mm)
+- Distant objects → standard IPD (64mm)
+- Vast landscapes → slightly larger (66-68mm)
+
+**Why it matters:**
+- Too large: Eye strain, "giant vision"
+- Too small: Uncomfortable depth, "miniature vision"
+- Just right: Natural, comfortable 3D
+
+### Subject Distance (Sweet Spot: 3-15 feet)
+
+**From Canon RF 5.2mm dual fisheye users:**
+> "Subjects generally look best positioned between 3 and 15 feet from the camera - close enough to engage with but far enough to look pleasing"
+
+**Distance Guidelines:**
+
+| Distance | Effect | IPD Recommendation | Use Case |
+|----------|--------|-------------------|----------|
+| **<3 feet** | ❌ Excessive parallax, eye strain | 60-62mm | Avoid |
+| **3-5 feet** | ✅ Intimate, engaging | 62-63mm | Close-ups, interviews |
+| **5-10 feet** | ✅ Natural, comfortable | 64mm (standard) | General content |
+| **10-15 feet** | ✅ Environmental, spatial | 64-66mm | Performances, scenes |
+| **>15 feet** | ⚠️ Depth less noticeable | 66-68mm | Landscapes (limited 3D) |
+
+**Why This Matters:**
+- **Too close:** Uncomfortable parallax, objects feel "in your face"
+- **Sweet spot:** Natural depth perception, comfortable viewing
+- **Too far:** Loses 3D effect, might as well be 2D
+
+**Pro Tip:**
+Place your main subject in the 5-10 foot range for optimal comfort. Use closer (3-5ft) for emphasis, farther (10-15ft) for environmental context.
+
+### Field of View (FOV)
+
+How much of the scene is captured.
+
+**180° (Real):** What VR headsets display
+**190° (Rendered):** Extra buffer for clean edges
+**200° (Maximum):** Extreme wide-angle (rarely needed)
+
+**Why 190° default:**
+- Captures full 180° cleanly
+- No edge vignetting
+- Comfortable viewing
+- Matches real VR180 cameras
+
+### Fisheye Equisolid Projection
+
+The lens model that matches real cameras.
+
+**Equisolid** (Our default):
+- Matches Canon RF 5.2mm lens
+- Realistic distortion
+- Accurate for VR
+
+**Equidistant** (Not recommended):
+- Circular fisheye
+- Doesn't match real cameras
+- Not good for VR180
+
+### Side-by-Side (SBS) Layout
+
+How left and right eye images are combined.
+
+```
+┌─────────────────────────────┐
+│ Left Eye  │  Right Eye      │
+│ 2880×2880 │  2880×2880      │
+└─────────────────────────────┘
+     Combined: 5760×2880
+```
+
+**YouTube Standard:** Left-Right (side-by-side)
+**Alternative:** Top-Bottom (used for VR360)
+
+---
+
+## Best Practices
+
+### Camera Placement
+
+✅ **DO:**
+- Keep camera at eye level (1.6m)
+- **Keep camera PERFECTLY level** (critical - no tilt!)
+- Use static camera or slow movements
+- Position rig at viewer's natural position
+- Check horizon line is level in viewport
+
+❌ **DON'T:**
+- Tilt camera even slightly (causes instant motion sickness)
+- Fast pans or spins (nauseating)
+- Handheld without stabilization
+- Place camera at awkward heights
+
+**⚠️ CRITICAL: Camera Leveling**
+
+From Canon dual fisheye users:
+> "Even a bubble level on a tripod may be more reliable than gyroscope sensors"
+
+**Why It Matters:**
+- Even **2° tilt** causes viewer discomfort
+- Tilt is THE #1 cause of VR motion sickness
+- Still images with tilt feel uncomfortable
+- Cannot be fixed in post-processing
+
+**Best Practice:**
+- Ensure camera rotation X and Y = 0°
+- Only rotate on Z axis (panning) if needed
+- Use visual horizon indicator in Blender viewport
+- Add-on should warn if camera is tilted
+
+### Content Design
+
+✅ **DO:**
+- Design for 180° front view
+- Keep important action in front
+- Use depth to create interest
+- Test in actual VR headset
+
+❌ **DON'T:**
+- Put critical content behind viewer
+- Use extreme close-ups (uncomfortable)
+- Rapid cuts (jarring in VR)
+- High-contrast flickering (headache-inducing)
+
+### Lighting
+
+✅ **DO:**
+- Even, soft lighting
+- Conservative contrast
+- Avoid blown highlights
+- Use 3-point lighting preset
+
+❌ **DON'T:**
+- Extreme highlights (very noticeable)
+- Pure black shadows (detail loss)
+- Flickering lights (headache)
+- Strong backlight without fill
+
+### Performance
+
+✅ **DO:**
+- Use GPU rendering (OptiX/HIP)
+- Enable denoising
+- Start with Preview preset
+- Test small frame range first
+
+❌ **DON'T:**
+- Render full animation without test
+- Use CPU for final render
+- Skip denoising (noisy VR is bad)
+- Ignore render time estimates
+
+---
+
+## Presets
+
+### Scene Presets
+
+**Studio Interview:**
+- 3-point lighting (soft key, gentle fill, rim)
+- Neutral gray cyclorama
+- Camera at 1.6m (seated eye level)
+- IPD: 64mm standard
+
+**Outdoor Scene:**
+- Sun lamp + sky shader
+- Environmental lighting
+- Camera at 1.7m (standing)
+- IPD: 64mm standard
+
+**Performance Stage:**
+- Multiple area lights (stage lighting)
+- Dark background
+- Camera at 1.5m (audience POV)
+- IPD: 63mm (intimate viewing)
+
+### Camera Presets
+
+**Canon RF 5.2mm Dual Fisheye:**
+- FOV: 190°
+- Focal Length: 5.2mm
+- IPD: 64mm
+- Sensor: Full frame equivalent
+
+**Insta360 EVO:**
+- FOV: 180°
+- Focal Length: 5.5mm
+- IPD: 64mm
+- Sensor: Custom
+
+**Custom Settings:**
+- User-adjustable all parameters
+- Save as custom preset
+- Share with team
+
+---
+
+## Troubleshooting
+
+### Issue: Video not showing as VR180 on YouTube
+
+**Symptoms:**
+- Video plays as flat 2D
+- No VR button in YouTube player
+
+**Solutions:**
+1. ✅ Verify metadata was injected (check add-on log)
+2. ✅ Wait up to 1 hour after upload (YouTube processing)
+3. ✅ Re-render with "Verify Metadata" option enabled
+4. ✅ Manually inject using Google Spatial Media tool
+
+### Issue: Stereo effect uncomfortable or wrong
+
+**Symptoms:**
+- Eye strain
+- Double vision
+- Depth feels wrong
+
+**Solutions:**
+1. ✅ Check IPD is 64mm (or 60-68mm range)
+2. ✅ Verify cameras are at same height
+3. ✅ Ensure parallel convergence (not toed-in)
+4. ✅ Test with different IPD (start at 62mm for close scenes)
+
+### Issue: Motion sickness reports
+
+**Symptoms:**
+- Viewers feel nauseous
+- Dizziness
+- Disorientation
+
+**Solutions:**
+1. ✅ Ensure camera is level (no tilt)
+2. ✅ Reduce camera movement (or make static)
+3. ✅ Increase frame rate to 60fps
+4. ✅ Avoid fast pans and rotations
+
+### Issue: Low quality / blurry in headset
+
+**Symptoms:**
+- Blurry when viewed in VR
+- Pixelated
+- Artifacts
+
+**Solutions:**
+1. ✅ Increase resolution to 5760×2880 or higher
+2. ✅ Use Production or Final render preset
+3. ✅ Increase bitrate to 100Mbps+
+4. ✅ Check denoising isn't too aggressive
+5. ✅ Wait for YouTube to process high-quality version
+
+### Issue: Render taking too long
+
+**Symptoms:**
+- Hours per frame
+- Can't finish project
+
+**Solutions:**
+1. ✅ Switch to GPU rendering
+2. ✅ Use Preview preset (256 samples)
+3. ✅ Reduce resolution for test renders
+4. ✅ Simplify scene complexity
+5. ✅ Render overnight or use render farm
+
+---
+
+## Why Blender VR180? (Advantages Over Real Cameras)
+
+Based on research with Canon RF 5.2mm dual fisheye users, our Blender workflow solves their biggest pain points:
+
+### 🚀 Speed: Hours Saved
+
+| Task | Canon Camera Workflow | Blender VR180 Add-on |
+|------|----------------------|---------------------|
+| Capture/Render | Real-time shooting | Render time varies |
+| **Conversion** | **3-9 hours** | **None needed!** ✅ |
+| Corrections | Parallax, leveling, chromatic aberration | **Perfect by default** ✅ |
+| Metadata | Manual injection | **Automatic** ✅ |
+| **Total Post** | **4-10+ hours** | **0 hours** ✅ |
+
+**Real user quote:**
+> "A 2-minute 8K video takes 9 hours to process on older computers"
+
+**Our advantage:** Render directly to YouTube-ready format. No conversion step!
+
+### 💾 File Sizes: 50-100GB vs Direct Export
+
+**Canon Workflow:**
+- Capture: 50GB for 2 minutes (8K RAW)
+- Convert: 100GB+ ProRes intermediate
+- Export: 5-10GB H.265 final
+- **Total storage:** 150GB+ for 2 minutes
+
+**Blender Workflow:**
+- Render: Direct to H.265
+- **Total storage:** 5-10GB for 2 minutes ✅
+
+**Savings:** 95% less storage needed!
+
+### ✨ Perfect Quality: No Lens Artifacts
+
+**Canon (Real Lens) Issues:**
+- ❌ Chromatic aberration (purple/green fringing)
+- ❌ Parallax misalignment (needs correction)
+- ❌ Lens distortion variations
+- ❌ Sensor noise
+
+**Blender (CG) Advantages:**
+- ✅ Perfect alignment (no parallax correction needed)
+- ✅ No chromatic aberration
+- ✅ Perfect lens simulation
+- ✅ Clean, noise-free render (with denoising)
+
+### 🔄 Flexibility: Re-render Anytime
+
+**Canon (Real Camera):**
+- ❌ Can't change IPD after shooting
+- ❌ Can't adjust FOV after capture
+- ❌ Can't relight scene
+- ❌ Stuck with camera settings
+
+**Blender:**
+- ✅ Adjust IPD anytime and re-render
+- ✅ Change FOV, focal length, resolution
+- ✅ Relight scene completely
+- ✅ Modify any parameter, infinite iterations
+
+### 💰 Cost: $6,500 vs Free
+
+**Canon VR180 Kit:**
+- Canon R5: $3,900
+- RF 5.2mm Dual Fisheye: $2,000
+- EOS VR Utility: Included (but required)
+- **Total:** $5,900+ (plus computer to process)
+
+**Blender VR180:**
+- Blender: Free ✅
+- VR Production Toolkit Add-on: Free (open-source) ✅
+- **Total:** $0
+
+### 🌍 Open Ecosystem
+
+**Canon:**
+- Proprietary EOS VR Utility (Windows/Mac only)
+- Or Adobe Premiere Plugin (Adobe subscription required)
+- Limited to Canon cameras
+
+**Blender:**
+- Open-source, cross-platform (Windows, Mac, Linux)
+- Works with any Blender scene
+- No vendor lock-in
+- Community-driven development
+
+### 📊 Summary: Blender Advantages
+
+| Feature | Canon Camera | Blender Add-on |
+|---------|--------------|----------------|
+| **Cost** | $6,500 | **Free** ✅ |
+| **Conversion** | 3-9 hours | **None** ✅ |
+| **File sizes** | 50-100GB | **Direct export** ✅ |
+| **Corrections** | Manual | **Automatic** ✅ |
+| **Metadata** | Manual | **Auto-injected** ✅ |
+| **Lens artifacts** | Yes (needs fix) | **Perfect CG** ✅ |
+| **Flexibility** | Fixed after shoot | **Re-render anytime** ✅ |
+| **Platform** | Windows/Mac | **Win/Mac/Linux** ✅ |
+
+**The only thing real cameras can do that we can't:** Capture real-world footage.
+
+**For everything else** (animation, visualization, CG content), **Blender is objectively better!**
+
+---
+
+## Color Spaces & Matching Real Footage
+
+### Color Space Options
+
+The add-on provides multiple color space presets for different workflows:
+
+**sRGB (Default):**
+- Best for: YouTube, web, general viewing
+- Standard: Rec.709 color primaries
+- Gamma: 2.2
+
+**Canon Log 3:**
+- Best for: Mixing CG with Canon camera footage
+- Matches: Canon R5/R5C Log 3 output
+- Wide dynamic range for color grading
+
+**Rec.709:**
+- Best for: Broadcast video, professional delivery
+- Industry standard for HD video
+
+**ACES:**
+- Best for: High-end VFX, film workflows
+- Maximum color accuracy and range
+
+### Mixing CG with Real Canon Footage
+
+If you're combining Blender renders with Canon dual fisheye footage:
+
+1. **Set Blender to Canon Log 3** color space
+2. Render your CG elements
+3. Import both CG and real footage into editor
+4. Color grade together in the same Log space
+5. Export final video with Rec.709
+
+This ensures perfect color matching between CG and real camera footage!
+
+---
+
+## Examples
+
+### Example 1: Simple Interview Setup
+
+```
+1. Create VR180 Rig (default settings)
+2. Add Studio Interview preset:
+   - 3-point lighting
+   - Neutral background
+   - Two characters facing camera
+3. Position camera 2m from subjects
+4. Render for YouTube (Production preset)
+5. Upload to YouTube
+```
+
+**Result:** Professional VR interview ready in under 1 hour.
+
+### Example 2: Animated Music Video
+
+```
+1. Create VR180 Rig
+2. Use Performance Stage preset
+3. Import character animation
+4. Add audio track
+5. Render for YouTube (Final preset, 60fps)
+6. Upload with spatial audio
+```
+
+**Result:** Immersive VR music video.
+
+### Example 3: Architectural Walkthrough
+
+```
+1. Create VR180 Rig
+2. Animate slow dolly movement through space
+3. Use Outdoor Scene preset for lighting
+4. Render at 8K for maximum detail
+5. Render for YouTube
+```
+
+**Result:** High-quality VR property tour.
+
+---
+
+## Tips & Tricks
+
+### Getting the Best Quality
+
+1. **Resolution:** Higher is always better for VR (5760×2880 minimum)
+2. **Frame Rate:** 60fps for smooth motion (90fps even better)
+3. **Samples:** Don't skimp - 512 minimum, 1024 for final
+4. **Denoising:** Use OptiX, but don't over-denoise (blurs stereo)
+5. **Lighting:** Even lighting shows less artifacts
+
+### Faster Workflows
+
+1. **Preview First:** Always test 10-frame range before full render
+2. **GPU Essential:** CPU rendering VR180 is painfully slow
+3. **Proxy Renders:** Render low-res for timing, high-res for final
+4. **Reuse Setups:** Save rig as asset library item
+5. **Batch Render:** Queue multiple scenes overnight
+
+### Creative Techniques
+
+1. **Depth Layering:** Use foreground, midground, background
+2. **Leading Lines:** Guide viewer's eye with composition
+3. **Scale Reference:** Include human-scale objects for context
+4. **Negative Space:** Give viewer's eyes places to rest
+5. **Reveal Moments:** Let viewer discover details by looking around
+
+---
+
+## Related Components
+
+- **VR360 Mono Camera** - For full 360° non-stereoscopic
+- **VR360 Stereo Camera** - For stereoscopic 360°
+- **Standard Camera** - For traditional flat video
+- **Lighting Rigs** - Pre-configured 3-point, studio, outdoor
+- **Cyclorama Setup** - Professional background and staging
+- **Reference Objects** - Human scale capsule for sizing
+
+---
+
+## Resources
+
+### Official Specifications
+- [YouTube VR180 Help](https://support.google.com/youtube/answer/6178631)
+- [Google VR180 Spec](https://github.com/google/spatial-media/blob/master/docs/vr180.md)
+- [Blender Cycles Cameras](https://docs.blender.org/manual/en/latest/render/cycles/object_settings/cameras.html)
+
+### Community
+- [Blender VR Production Discord](#)
+- [YouTube VR Creators Forum](https://support.google.com/youtube/community)
+- [r/VR180](https://reddit.com/r/VR180)
+
+### Learning
+- [VR180 Best Practices Guide](../research/youtube-vr180-specs.mdx)
+- [Blender VR Workflow Tutorial](../research/blender-vr-best-practices.mdx)
+- [Metadata Injection Guide](../research/metadata-injection-automation.mdx)
+
+---
+
+## Version History
+
+- **v1.0** (Planning) - Initial specification
+  - YouTube-optimized workflow
+  - Automated metadata injection
+  - One-click export
+
+---
+
+**Next:** See [vr180-fisheye.tech.mdx](./vr180-fisheye.tech.mdx) for technical implementation details.

@@ -1,0 +1,251 @@
+---
+title: "PE Camera Rigs: Installation Guide"
+description: "Step-by-step instructions for installing the PE Camera Rigs addon in Blender 4.0+."
+---
+
+# Installation Guide
+
+This guide walks you through installing the **PE Camera Rigs** addon in Blender. The process takes just a few minutes and uses Blender's built-in addon manager.
+
+---
+
+## Requirements
+
+Before installing, ensure you meet these requirements:
+
+- **Blender Version:** 4.0.0 or newer
+- **Operating System:** Windows, macOS, or Linux
+- **Addon File:** `pe_camera_rigs.zip` (obtain from GitHub releases or build from source)
+
+**Note:** This addon is specifically designed for Blender 4.0+ and may not work correctly on older versions.
+
+---
+
+## Installation Steps
+
+### Step 1: Download the Addon
+
+**Option A: Download from GitHub Releases** (Recommended)
+
+1. Visit the [GitHub Releases page]
+2. Download the latest `pe_camera_rigs_vX.X.X.zip` file
+3. **Do not unzip the file** - Blender requires the `.zip` format
+
+**Option B: Build from Source**
+
+If you have the source code, see the [Packaging Guide](./00-packaging_up.mdx) to create the `.zip` file.
+
+### Step 2: Open Blender Preferences
+
+1. **Launch Blender** (version 4.0 or newer)
+2. Go to **`Edit`** → **`Preferences`** (or `Blender` → `Preferences` on macOS)
+3. Click the **`Add-ons`** tab in the left sidebar
+
+![Blender Preferences - Add-ons Tab](/docs/images/blender-preferences-addons.png)
+
+### Step 3: Install the Addon
+
+1. Click the **`Install...`** button in the top-right corner
+2. In the file browser, navigate to your downloaded `pe_camera_rigs.zip` file
+3. **Select the file** and click **`Install Add-on`**
+
+**Important:** Install the `.zip` file directly - do not extract it first.
+
+### Step 4: Enable the Addon
+
+1. After installation, Blender will automatically filter to show the new addon
+2. Find **"PE Camera Rigs"** in the list
+   - If the list is filtered, you can search for "camera" or "PE" in the search box
+3. **Check the checkbox** next to the addon name to enable it
+
+![PE Camera Rigs Enabled](/docs/images/addon-enabled.png)
+
+**Success!** You should see:
+
+- A checkmark next to "PE Camera Rigs"
+- No error messages in red text below the addon entry
+
+### Step 5: Verify Installation
+
+To confirm the addon is working:
+
+1. **Open or create a new Blender project**
+2. In the **3D Viewport**, press **`N`** to open the sidebar (if it's hidden)
+3. Look for the **"PE Cams"** tab at the top of the sidebar
+4. Click it to reveal the camera rig panels
+
+![PE Cams Sidebar Tab](/docs/images/pe-cams-tab.png)
+
+You should see panels for:
+
+- Orbit Camera
+- Isometric Camera
+- VR180 Professional Workflow
+- VR360 Mono Professional Workflow
+
+---
+
+## Troubleshooting
+
+### Problem: "PE Cams" tab doesn't appear in sidebar
+
+**Solutions:**
+
+1. Press `N` to toggle the sidebar if it's hidden
+2. Check the addon is **enabled** (checkbox is checked in Preferences)
+3. Restart Blender after enabling the addon
+4. Check the **System Console** for Python errors:
+   - Windows: `Window` → `Toggle System Console`
+   - macOS/Linux: Launch Blender from Terminal to see errors
+
+### Problem: "Module not a valid addon" error during installation
+
+**Cause:** Incorrect zip file structure.
+
+**Solution:**
+
+- The zip file must contain the `pe_camera_rigs` folder at its root level
+- Download the official release or rebuild following the [Packaging Guide](./00-packaging_up.mdx)
+- Do not try to install a zip of the entire repository
+
+### Problem: Addon appears but buttons don't work
+
+**Solutions:**
+
+1. Check the **System Console** for error messages
+2. Verify you're running **Blender 4.0 or newer** (`Help` → `About Blender`)
+3. Try disabling and re-enabling the addon
+4. If the issue persists, report it on [GitHub Issues](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+
+### Problem: Can't find the addon in the list after installation
+
+**Solutions:**
+
+1. **Clear the search filter** - look for an 'X' button next to the search box
+2. **Filter by category** - select "Camera" from the category dropdown
+3. **Scroll down** - the addon may not be at the top of the list
+4. **Check "Community" tab** - ensure you're not filtering to "Official" addons only
+
+### Problem: Installation fails with "Permission denied"
+
+**Cause:** Blender doesn't have write access to its addons folder.
+
+**Solutions:**
+
+- **Windows:** Run Blender as Administrator (right-click → "Run as administrator")
+- **macOS/Linux:** Check permissions on `~/.config/blender/4.x/scripts/addons/`
+- Install to user addons folder instead of system folder
+
+---
+
+## Addon Preferences
+
+After installation, you can configure addon-wide settings:
+
+1. In **Preferences → Add-ons**, find "PE Camera Rigs"
+2. **Expand the addon entry** (click the arrow on the left)
+3. Configure available settings:
+   - **Output Path:** Default directory for rendered files
+   - **Spatial Media Tool Path:** Path to Google's spatial media metadata injector (for VR workflows)
+
+![Addon Preferences](/docs/images/addon-preferences.png)
+
+**Note:** These preferences are optional. The addon will work with default settings.
+
+---
+
+## Updating the Addon
+
+When a new version is released:
+
+### Method 1: Remove and Reinstall (Recommended)
+
+1. Go to **`Edit`** → **`Preferences`** → **`Add-ons`**
+2. Find "PE Camera Rigs" and click the **Remove** button
+3. **Restart Blender**
+4. Follow the installation steps above with the new `.zip` file
+
+### Method 2: Overwrite Installation
+
+1. Install the new `.zip` file using `Install...` button
+2. Blender will ask if you want to **overwrite** the existing addon
+3. Click **OK** to overwrite
+4. **Restart Blender** to load the new version
+
+**Important:** Always restart Blender after updating to ensure the new code is loaded.
+
+---
+
+## Uninstalling
+
+To completely remove the addon:
+
+1. Go to **`Edit`** → **`Preferences`** → **`Add-ons`**
+2. Find "PE Camera Rigs" in the list
+3. **Uncheck the checkbox** to disable it
+4. Click the **Remove** button
+5. Restart Blender
+
+**Note:** Any rigs you created in your scenes will remain, but the addon panels and operators will no longer be available.
+
+---
+
+## System Console (Debugging Tool)
+
+If you encounter issues, the **System Console** shows detailed error messages:
+
+**Windows:**
+
+- `Window` → `Toggle System Console`
+- A black console window will open showing Python output
+
+**macOS:**
+
+- Launch Blender from Terminal: `/Applications/Blender.app/Contents/MacOS/Blender`
+- Errors will appear in the Terminal window
+
+**Linux:**
+
+- Launch Blender from terminal: `blender`
+- Errors will appear in the same terminal
+
+Look for lines starting with `Error:`, `Traceback`, or mentioning `pe_camera_rigs`.
+
+---
+
+## Getting Help
+
+If you encounter problems not covered here:
+
+1. **Check the User Guide:** [User Guide](./02-users_guide.mdx)
+2. **Search existing issues:** [GitHub Issues](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+3. **Report a bug:** Create a new issue with:
+   - Your Blender version (`Help` → `About Blender`)
+   - Your operating system
+   - Steps to reproduce the problem
+   - Any error messages from the System Console
+
+---
+
+## Next Steps
+
+Now that the addon is installed, learn how to use it:
+
+- **[User Guide](./02-users_guide.mdx)** - Complete guide to all four camera rigs
+- **[Orbit Camera](../specs/cameras/orbit-01-userflow-and-ux.mdx)** - Procedural turntable animations
+- **[Isometric Camera](../specs/cameras/isometric-01-userflow-and-ux.mdx)** - Axonometric projection views
+- **[VR180 Workflow](../specs/cameras/vr180-01-userflow-and-ux.mdx)** - Stereoscopic VR180 content
+- **[VR360 Workflow](../specs/cameras/vr360mono-01-userflow-and-ux.mdx)** - Monoscopic VR360 content
+
+---
+
+## Version History
+
+**Current Version:** 1.0.0
+
+- Complete rebranding from CGT to PE (Perpetual Exploration)
+- All four camera rigs fully functional
+- Comprehensive error handling
+- Improved UI organization
+
+See [CHANGELOG.md](../../CHANGELOG.md) for detailed release notes.

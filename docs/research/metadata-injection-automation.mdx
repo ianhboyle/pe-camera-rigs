@@ -1,0 +1,463 @@
+# VR180 Metadata Injection Automation
+
+**Research Date:** 2025-12-07
+**Goal:** Automate YouTube VR180 spatial metadata injection directly from Blender
+
+---
+
+## Overview
+
+YouTube requires spatial metadata to be injected into VR180 videos before they display correctly. We can **automate this entirely within the Blender add-on** using Google's spatial-media Python library, eliminating the need for external programs.
+
+---
+
+## Solution: Integrate Google Spatial-Media Library
+
+### What is spatial-media?
+
+Google's official Python tool for manipulating spatial media (spherical video and spatial audio) metadata in MP4 and MOV files.
+
+- **Repository:** [google/spatial-media](https://github.com/google/spatial-media)
+- **License:** Apache 2.0 (commercial use allowed)
+- **Python:** 2.7 or 3.6+
+- **Formats:** MP4, MOV
+
+### Command-Line Usage
+
+```bash
+# Basic VR180 side-by-side injection
+python -m spatialmedia --inject --v2 --stereo=left-right input.mp4 output.mp4
+
+# VR180 with spatial audio
+python -m spatialmedia --inject --v2 --stereo=left-right --spatial-audio input.mp4 output.mp4
+
+# Check existing metadata
+python -m spatialmedia input.mp4
+```
+
+### Parameters for VR180
+
+```bash
+--inject              # Inject metadata mode
+--v2                  # Use Spherical V2 metadata format
+--stereo=left-right   # Side-by-side stereo layout (VR180)
+--stereo=top-bottom   # Top-bottom stereo layout (VR360)
+--spatial-audio       # Enable spatial audio metadata
+```
+
+---
+
+## Integration into Blender Add-on
+
+### Approach 1: Bundle spatial-media Library
+
+**Package the library with the add-on:**
+
+```python
+# In your add-on directory structure:
+vr_production_toolkit/
+├── __init__.py
+├── camera_rigs.py
+├── render_utils.py
+└── lib/
+    └── spatialmedia/       # Bundled spatial-media library
+        ├── __init__.py
+        ├── mpeg.py
+        ├── metadata_utils.py
+        └── ...
+```
+
+**Import and use in add-on:**
+
+```python
+# In render_utils.py
+import sys
+import os
+from pathlib import Path
+
+# Add bundled library to path
+addon_dir = Path(__file__).parent
+lib_dir = addon_dir / "lib"
+if str(lib_dir) not in sys.path:
+    sys.path.insert(0, str(lib_dir))
+
+from spatialmedia import metadata_utils
+
+def inject_vr180_metadata(input_file, output_file):
+    """Inject VR180 spatial metadata into rendered video"""
+
+    metadata = metadata_utils.Metadata()
+    metadata.video = metadata_utils.generate_spherical_xml(
+        stereo='left-right',
+        crop_rectangle=None
+    )
+
+    # Parse and inject
+    with open(input_file, 'rb') as in_fh:
+        with open(output_file, 'wb') as out_fh:
+            metadata_utils.inject_metadata(
+                in_fh,
+                out_fh,
+                metadata,
+                console=False
+            )
+
+    print(f"VR180 metadata injected: {output_file}")
+```
+
+### Approach 2: Subprocess Call
+
+**Call spatial-media as external command:**
+
+```python
+import subprocess
+import bpy
+
+def inject_vr180_metadata_subprocess(input_file, output_file):
+    """Inject metadata using subprocess call to spatial-media"""
+
+    # Path to spatial-media (user-installed or bundled)
+    spatialmedia_path = get_spatialmedia_path()
+
+    cmd = [
+        'python',
+        '-m', 'spatialmedia',
+        '--inject',
+        '--v2',
+        '--stereo=left-right',
+        input_file,
+        output_file
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print(f"Metadata injected successfully: {output_file}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error injecting metadata: {e.stderr}")
+        return False
+```
+
+### Approach 3: Post-Render Hook
+
+**Automatically inject after rendering:**
+
+```python
+# In the VR180 render operator
+class VR180_OT_RenderForYouTube(bpy.types.Operator):
+    """Render VR180 and auto-inject YouTube metadata"""
+    bl_idname = "vr180.render_youtube"
+    bl_label = "Render for YouTube"
+
+    def execute(self, context):
+        scene = context.scene
+        settings = scene.vr180_settings
+
+        # 1. Render animation/still
+        output_path = bpy.path.abspath(settings.output_path)
+        temp_file = output_path + "_temp.mp4"
+        final_file = output_path + "_youtube.mp4"
+
+        # Render to temp file
+        scene.render.filepath = temp_file
+        bpy.ops.render.render(animation=True, write_still=False)
+
+        # 2. Auto-inject metadata
+        if settings.auto_inject_metadata:
+            self.report({'INFO'}, "Injecting VR180 metadata...")
+            success = inject_vr180_metadata(temp_file, final_file)
+
+            if success:
+                # Remove temp file
+                os.remove(temp_file)
+                self.report({'INFO'}, f"YouTube-ready file: {final_file}")
+            else:
+                self.report({'WARNING'}, "Metadata injection failed - manual injection needed")
+
+        return {'FINISHED'}
+```
+
+---
+
+## Existing Tools for Reference
+
+### VHT Tools for Blender
+
+An existing open-source Blender add-on for VR180/360 content:
+
+- **Repository:** [virtualhometheater/VHT-tools-for-Blender](https://github.com/virtualhometheater/VHT-tools-for-Blender)
+- **License:** GNU GPL 3.0
+- **Features:**
+  - 3D stereoscopic 180/360 rendering
+  - Helper tools for VR content creators
+  - Works with Cycles and EEVEE
+
+**What we can learn:**
+- Camera setup approaches
+- UI/UX patterns for VR workflows
+- Common user pain points addressed
+
+**What we'll do differently:**
+- Better YouTube integration
+- Automated metadata injection
+- One-click workflow
+- More presets and automation
+
+---
+
+## Complete Automated Workflow
+
+### User Experience:
+
+```
+1. User clicks "Render VR180 for YouTube"
+2. Blender add-on:
+   ✓ Renders left eye (2880×2880)
+   ✓ Renders right eye (2880×2880)
+   ✓ Denoises each eye (OptiX)
+   ✓ Combines to SBS (5760×2880)
+   ✓ Encodes as H.265 @ 100Mbps
+   ✓ Injects VR180 spatial metadata
+   ✓ Outputs: my_video_youtube.mp4
+3. User uploads directly to YouTube
+4. Video displays correctly as VR180 immediately!
+```
+
+### No External Programs Needed:
+- ❌ No Adobe Premiere
+- ❌ No standalone Spatial Media Injector GUI
+- ❌ No command-line tools
+- ❌ No file format conversions
+- ✅ **Everything in Blender!**
+
+---
+
+## Technical Implementation Plan
+
+### Phase 1: Basic Integration
+
+```python
+# Minimum viable metadata injection
+def inject_basic_vr180(input_mp4, output_mp4):
+    """Simple VR180 left-right stereo metadata"""
+    cmd = [
+        'python', '-m', 'spatialmedia',
+        '--inject', '--v2',
+        '--stereo=left-right',
+        input_mp4, output_mp4
+    ]
+    subprocess.run(cmd, check=True)
+```
+
+### Phase 2: Advanced Options
+
+```python
+# Property group for metadata settings
+class VR180MetadataSettings(PropertyGroup):
+    stereo_mode: EnumProperty(
+        name="Stereo Mode",
+        items=[
+            ('left-right', "Side-by-Side (VR180)", ""),
+            ('top-bottom', "Top-Bottom (VR360)", ""),
+        ],
+        default='left-right'
+    )
+
+    enable_spatial_audio: BoolProperty(
+        name="Spatial Audio",
+        default=False
+    )
+
+    auto_inject: BoolProperty(
+        name="Auto-Inject Metadata After Render",
+        default=True
+    )
+```
+
+### Phase 3: Library Bundling
+
+- Bundle spatial-media Python library with add-on
+- No external dependencies required
+- Works offline
+- Faster execution (no subprocess overhead)
+
+---
+
+## Metadata Format Details
+
+### What Gets Injected
+
+**Spherical Video V2 Metadata:**
+```xml
+<rdf:SphericalVideo>
+  <Spherical>true</Spherical>
+  <Stitched>true</Stitched>
+  <StitchingSoftware>Blender VR Production Toolkit</StitchingSoftware>
+  <ProjectionType>equirectangular</ProjectionType>
+  <StereoMode>left-right</StereoMode>
+  <SourceCount>2</SourceCount>
+  <InitialViewHeadingDegrees>0</InitialViewHeadingDegrees>
+  <InitialViewPitchDegrees>0</InitialViewPitchDegrees>
+  <InitialViewRollDegrees>0</InitialViewRollDegrees>
+  <Timestamp>2025-12-07T12:00:00.000000Z</Timestamp>
+  <FullPanoWidthPixels>5760</FullPanoWidthPixels>
+  <FullPanoHeightPixels>2880</FullPanoHeightPixels>
+  <CroppedAreaImageWidthPixels>5760</CroppedAreaImageWidthPixels>
+  <CroppedAreaImageHeightPixels>2880</CroppedAreaImageHeightPixels>
+  <CroppedAreaLeftPixels>0</CroppedAreaLeftPixels>
+  <CroppedAreaTopPixels>0</CroppedAreaTopPixels>
+</rdf:SphericalVideo>
+```
+
+### Supported Container Formats
+
+- **MP4** (H.264, H.265/HEVC)
+- **MOV** (QuickTime)
+
+Both formats supported by YouTube.
+
+---
+
+## Testing & Validation
+
+### Verify Metadata Injection
+
+```python
+def verify_vr180_metadata(video_file):
+    """Check if VR180 metadata is present"""
+    cmd = ['python', '-m', 'spatialmedia', video_file]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if 'Spherical: true' in result.stdout and 'Stereo mode: left-right' in result.stdout:
+        return True
+    return False
+```
+
+### Test Checklist
+
+1. ✅ Render test VR180 video
+2. ✅ Inject metadata automatically
+3. ✅ Verify metadata with spatial-media tool
+4. ✅ Upload to YouTube (private test)
+5. ✅ Confirm VR180 detection in YouTube
+6. ✅ Test in VR headset (Meta Quest, etc.)
+
+---
+
+## User Interface
+
+### Add-on Panel Section
+
+```python
+# In UI panel
+box = layout.box()
+box.label(text="YouTube VR180 Export", icon='RENDER_ANIMATION')
+
+col = box.column(align=True)
+col.prop(settings, "auto_inject_metadata", text="Auto-Inject Metadata")
+col.prop(settings, "stereo_mode")
+
+if settings.enable_spatial_audio:
+    col.prop(settings, "enable_spatial_audio")
+
+box.operator("vr180.render_youtube", icon='PLAY', text="Render for YouTube")
+```
+
+---
+
+## Dependencies & Licensing
+
+### Google spatial-media
+
+- **License:** Apache 2.0
+- **Commercial Use:** ✅ Allowed
+- **Modification:** ✅ Allowed
+- **Distribution:** ✅ Allowed (with license notice)
+
+### Our Add-on License
+
+- Can bundle spatial-media (Apache 2.0 compatible)
+- Must include Apache 2.0 license notice in add-on
+- Can release under MIT or GPL
+
+---
+
+## Alternative: FFmpeg Metadata Injection
+
+**Note:** FFmpeg can also inject basic metadata, but spatial-media is more comprehensive:
+
+```bash
+# Basic spherical metadata via FFmpeg
+ffmpeg -i input.mp4 -c copy \
+  -metadata:s:v:0 spherical="true" \
+  -metadata:s:v:0 stereo_mode="left_right" \
+  output.mp4
+```
+
+**Limitation:** FFmpeg doesn't support full Spherical V2 spec required by YouTube.
+
+**Recommendation:** Stick with spatial-media for full compatibility.
+
+---
+
+## Implementation Recommendations
+
+### For the VR180 Add-on:
+
+1. ✅ **Bundle spatial-media library** (easiest for users)
+2. ✅ **Default to auto-inject** (checkbox to disable)
+3. ✅ **Show progress notification** during injection
+4. ✅ **Verify after injection** (check metadata was added)
+5. ✅ **Handle errors gracefully** (clear error messages)
+6. ✅ **Provide manual inject button** (if auto fails)
+
+### User Settings:
+
+```python
+class VR180Settings(PropertyGroup):
+    # ... other settings ...
+
+    auto_inject_metadata: BoolProperty(
+        name="Auto-Inject YouTube Metadata",
+        description="Automatically inject VR180 spatial metadata after rendering",
+        default=True
+    )
+
+    verify_metadata: BoolProperty(
+        name="Verify Metadata After Injection",
+        description="Check that metadata was successfully injected",
+        default=True
+    )
+```
+
+---
+
+## Sources & References
+
+- [Google Spatial Media Repository](https://github.com/google/spatial-media)
+- [Spatial Media README](https://github.com/google/spatial-media/blob/master/spatialmedia/README.md)
+- [VHT Tools for Blender](https://github.com/virtualhometheater/VHT-tools-for-Blender)
+- [Spatial Media Metadata Injector](https://github.com/google/spatial-media/releases)
+- [Blender Stack Exchange: VR180 Metadata](https://blender.stackexchange.com/questions/250971/what-are-the-metadata-tags-for-360-video-how-do-i-set-them-from-blender-ffmpe)
+- [Video Production Stack Exchange: VR180 Metadata](https://video.stackexchange.com/questions/28028/correct-metadata-for-vr180-video-on-youtube)
+
+---
+
+## Summary
+
+**YES - We can 100% automate metadata injection in Blender!**
+
+By integrating Google's spatial-media Python library directly into the add-on, we can provide a **true one-click workflow** from Blender to YouTube:
+
+```
+Blender Scene → Render → Composite → Encode → Inject Metadata → YouTube Ready!
+```
+
+**No external programs needed. No manual steps. Just render and upload.**
+
+This is the killer feature that will make this add-on the easiest VR180 workflow available.

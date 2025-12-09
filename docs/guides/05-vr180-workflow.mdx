@@ -1,0 +1,666 @@
+---
+title: "VR180 Workflow Guide"
+description: "Complete 4-step workflow for creating stereoscopic 180° VR content with the VR180 rig."
+---
+
+# VR180 Workflow Guide
+
+The **VR180 Workflow** creates professional stereoscopic 180° VR content for YouTube VR, Meta Quest, and other VR platforms. This crash-safe, 4-step pipeline guides you through scene setup, rendering, compositing, and export.
+
+**Type:** Workflow Rig (4-Step Pipeline)
+**Setup Time:** 5-10 minutes
+**Skill Level:** Intermediate
+**Output:** Side-by-side equirectangular fisheye video
+
+---
+
+## What You'll Learn
+
+- Understanding VR180 stereosc
+
+opic format
+- Complete 4-step production workflow
+- IPD (Interpupillary Distance) adjustment
+- Crash-safe EXR rendering techniques
+- Adding spatial metadata for YouTube
+- Best practices for VR content
+
+---
+
+## What is VR180?
+
+**VR180** captures a 180° field of view with two cameras (left and right eye), creating a stereoscopic 3D effect. When viewed in a VR headset, it provides natural depth perception.
+
+**Key Characteristics:**
+- **180° horizontal field of view**
+- **Stereoscopic** (separate left/right images)
+- **Equirectangular fisheye** projection
+- **Side-by-side** output format
+- **2:1 aspect ratio** (e.g., 5120×2560)
+
+**Use Cases:**
+- YouTube VR videos
+- Meta Quest experiences
+- Educational VR content
+- Virtual tours (front-facing)
+- Narrative VR experiences
+
+**Advantages over VR360:**
+- Depth perception (stereoscopic)
+- Higher resolution per degree
+- Easier to compose (front-facing)
+- More comfortable viewing
+
+**Limitations:**
+- Only front 180° (viewer can't look behind)
+- More complex rendering (two cameras)
+- Larger file sizes
+
+---
+
+## The 4-Step Workflow
+
+```
+Step 1: Create Scene
+  ↓
+Step 2: Render Left & Right Sequences
+  ↓
+Step 3: Setup Compositor
+  ↓
+Step 4: Render YouTube Video
+```
+
+**Why 4 steps?**
+- **Crash Safety:** Resume renders from last frame
+- **Iteration:** Tweak compositing without re-rendering
+- **Quality Control:** Review raw EXR before final encode
+- **Flexibility:** Each step can be run independently
+
+---
+
+## Quick Start (15 Minutes)
+
+### Prerequisites
+
+- Blender 4.0+
+- PE Camera Rigs addon installed
+- Scene with content to render
+- Sufficient disk space (EXR files are large!)
+
+### Step 1: Create VR180 Scene (2 minutes)
+
+1. Open the **PE Cams** sidebar (press `N`)
+2. Find **"VR180 Professional Workflow"** panel
+3. **Configure Global Settings:**
+   - **Preset:** YouTube 5K (recommended)
+   - **Quality:** Preview (for testing) / Production (for final)
+   - **Output Path:** `//pe_renders/vr180/` (or your preference)
+
+4. **Configure STEP 1 Settings:**
+   - **Lighting:** Choose setup (3-Point Studio, HDRI, etc.)
+   - **☑ Include Cyclorama Stage** (for clean background)
+   - **☑ Include Reference Sphere** (for testing)
+
+5. Click **`[1️⃣ Create VR180 Scene]`**
+
+**Result:**
+- `VR180_Rig` parent object
+- `VR180_Camera_Left` camera
+- `VR180_Camera_Right` camera
+- Lighting (if enabled)
+- Cyclorama stage (if enabled)
+
+---
+
+### Step 2: Adjust IPD (1 minute)
+
+**IPD = Interpupillary Distance** (distance between eyes)
+
+1. **Select** the `VR180_Rig` object
+2. Go to **Object Properties** tab (orange square icon)
+3. Scroll to **Custom Properties**
+4. Find **IPD** property
+5. Default: **63mm** (average human)
+
+**When to change:**
+- **63mm:** Standard (use for most content)
+- **55-60mm:** Closer eyes (children, narrower faces)
+- **65-70mm:** Wider eyes (exaggerated depth)
+- **<50mm:** Miniature effect (insect/toy POV)
+- **>75mm:** Giant effect (exaggerated stereo)
+
+**Tip:** Start with 63mm. Only adjust if you know what you're doing!
+
+---
+
+### Step 3: Compose & Animate (Variable)
+
+Now create your VR experience:
+
+**Camera Positioning:**
+- The `VR180_Rig` is the viewer's head position
+- Position it at typical human eye height (1.6-1.8m Z)
+- Face it toward your main content (+Y direction)
+
+**Animation:**
+- Animate objects in your scene normally
+- Keep camera movement slow and smooth (avoid motion sickness!)
+- Set **Frame Start** and **Frame End** in timeline
+
+**Content Guidelines:**
+- Keep important action in front 120° (comfort zone)
+- Objects 1.5m - 10m from camera work best
+- Very close objects (<0.5m) strain eyes
+- Very far objects (>20m) lose stereo effect
+
+---
+
+### Step 4: Render Sequences (Hours - Variable)
+
+**This is the longest step!**
+
+1. In **VR180 Professional Workflow** panel, find **STEP 2**
+2. **Save your .blend file** (paths are relative to it!)
+3. Click **`[2️⃣ Render Left & Right Sequences]`**
+
+**What Happens:**
+- Renders left camera to `//output/vr180/left/left_####.exr`
+- Renders right camera to `//output/vr180/right/right_####.exr`
+- Uses OpenEXR format (32-bit float)
+- Progress shown in render window
+
+**Time Estimate:**
+- Preview quality: ~1-2 min per frame
+- Production quality: ~5-10 min per frame
+- 240 frames production = 20-40 hours!
+
+**Crash Safety:**
+- If Blender crashes, just restart and click the button again
+- It will **skip already-rendered frames**
+- Check output folder to see progress
+
+**Monitoring:**
+- Watch folder size grow
+- Check a few frames in image viewer to verify quality
+- Cancel anytime with `Esc` (progress is saved)
+
+---
+
+### Step 5: Setup Compositor (30 seconds)
+
+1. Wait for Step 2 to complete
+2. In **STEP 3**, click **`[3️⃣ Setup Compositor]`**
+
+**What Happens:**
+- Creates new scene: `VR180_Compositor`
+- Loads left and right EXR sequences
+- Builds node tree to combine side-by-side
+- Auto-configured for 2:1 output
+
+**To View/Edit:**
+- Scene dropdown → Select `VR180_Compositor`
+- Switch to **Compositing** workspace
+- You'll see the node tree
+- Adjust if needed (color grading, effects)
+
+**Common Adjustments:**
+- Color correction
+- Brightness/contrast
+- Vignette (subtle)
+- Sharpening
+
+---
+
+### Step 6: Render Final Video (Hours - Variable)
+
+1. In **STEP 4**, click **`[4️⃣ Render YouTube Video]`**
+
+**What Happens:**
+- Renders compositor output
+- Outputs to `//output/vr180/vr180_final.mp4`
+- Uses H.264 codec (YouTube-compatible)
+- Side-by-side format (left|right)
+
+**Time Estimate:**
+- Faster than Step 2 (just compositing)
+- ~10-30 seconds per frame
+- 240 frames = 40-120 minutes
+
+---
+
+### Step 7: Add Spatial Metadata (5 minutes)
+
+**Required for YouTube to recognize VR180!**
+
+YouTube needs special metadata to enable VR mode.
+
+**Using Google's Spatial Media Tool:**
+
+1. **Download spatial-media:**
+   - https://github.com/google/spatial-media
+   - Or: `pip install spatial-media`
+
+2. **Run the injector:**
+   ```bash
+   python -m spatialmedia -i -s left-right vr180_final.mp4 vr180_final_youtube.mp4
+   ```
+
+3. **Upload** `vr180_final_youtube.mp4` to YouTube
+
+**Result:** YouTube will recognize it as VR180 content!
+
+**Future:** This will be automated in addon preferences.
+
+---
+
+## Understanding the Settings
+
+### Global Settings (All Steps)
+
+**Preset** - Resolution presets
+- **YouTube 5K:** 5120×2560 (recommended)
+- **YouTube 4K:** 4096×2048
+- **YouTube 1080p:** 1920×960 (preview)
+- **Custom:** Define your own
+
+**Quality** - Render sample count
+- **Preview:** 32 samples (fast, noisy)
+- **Medium:** 128 samples (balanced)
+- **Production:** 512 samples (slow, clean)
+
+**Output Path** - Where files are saved
+- Use `//` for relative to .blend file
+- Example: `//renders/vr180/`
+- Ensure folder has enough space!
+
+---
+
+### STEP 1 Settings
+
+**Lighting**
+- **None:** Use existing scene lights
+- **3-Point Studio:** Classic studio setup
+- **HDRI:** Uses world HDRI (provide your own)
+- **Sun + Sky:** Outdoor lighting
+
+**Include Cyclorama Stage**
+- Creates infinite white background
+- Useful for isolated subjects
+- Can be hidden later
+
+**Include Reference Sphere**
+- Adds test sphere at origin
+- Helps verify stereo alignment
+- Delete before final render
+
+---
+
+### IPD (Interpupillary Distance)
+
+**What it controls:**
+- Horizontal separation between left/right cameras
+- Affects perceived depth in VR
+
+**Values:**
+- **63mm:** Standard adult human
+- **55mm:** Narrower (less depth)
+- **70mm:** Wider (more depth)
+
+**Effect on viewing:**
+- Too small → Miniature/toy world
+- Too large → Giant/exaggerated depth
+- Incorrect → Eye strain, discomfort
+
+**Best Practice:** Use 63mm unless you're simulating non-human POV.
+
+---
+
+## Step-by-Step Tutorial
+
+### Tutorial 1: Simple VR180 Scene
+
+**Goal:** Create a basic VR180 experience
+
+**Scene Setup:**
+1. Create a simple scene (cube, suzanne, etc.)
+2. Position objects 2-5m in front of origin
+3. Add some depth variation (foreground/background)
+
+**Workflow:**
+1. **Step 1:** Create VR180 Scene
+   - Preset: YouTube 5K
+   - Quality: Preview (for testing)
+   - Lighting: 3-Point Studio
+   - Include Cyclorama: Yes
+
+2. **Position Camera:**
+   - `VR180_Rig` at (0, 0, 1.7) - eye height
+   - Face it toward your scene
+
+3. **Test Render:**
+   - Set Frame End to 24 (1 second test)
+   - Step 2: Render sequences (will be quick)
+
+4. **Step 3:** Setup Compositor
+5. **Step 4:** Render final video
+
+6. **Review:**
+   - Play video in VR headset or YouTube VR app
+   - Check depth perception
+   - Verify no alignment issues
+
+---
+
+### Tutorial 2: Animated VR Experience
+
+**Goal:** Create a VR180 animation
+
+**Scene:**
+1. Character or object in center
+2. Camera stays still (viewer's POV)
+3. Action happens in front of camera
+
+**Animation:**
+- Animate objects, not camera!
+- Keep movements slow and deliberate
+- Avoid quick cuts or jumps
+
+**Rendering:**
+1. Set full timeline (e.g., 240 frames)
+2. Start with Preview quality to test
+3. If satisfied, switch to Production and re-render
+
+**Tips:**
+- Test short sequences first
+- Check stereo alignment early
+- Watch for objects getting too close to camera
+
+---
+
+## Advanced Techniques
+
+### Camera Movement
+
+**General Rule:** Minimize camera movement in VR!
+
+**Safe Movements:**
+- Slow dollies (forward/backward)
+- Gentle pans
+- Gradual height changes
+
+**Avoid:**
+- Fast pans (motion sickness!)
+- Rotation (viewer controls rotation!)
+- Shaky cam
+- Sudden movements
+
+**If you must move camera:**
+- Use bezier curve paths
+- Ease in/out
+- Keep speed constant
+- Warn viewers ("Please sit down")
+
+---
+
+### Depth Management
+
+**Optimal Depth Zones:**
+```
+<0.5m    - Too close (eye strain)
+0.5-1.5m - Close comfort zone
+1.5-5m   - Sweet spot (best stereo)
+5-10m    - Far comfort zone
+>10m     - Depth fades
+>20m     - Appears flat
+```
+
+**Composition Tips:**
+- Place hero subject 2-4m from camera
+- Use depth layers (fore/mid/background)
+- Avoid flat backdrops (breaks immersion)
+
+---
+
+### Lighting for VR
+
+**Guidelines:**
+- Bright, even lighting shows depth better
+- Avoid extreme contrast
+- Fill lights prevent "dead" sides
+- Ambient occlusion adds depth cues
+
+**Common Setups:**
+- **3-Point:** Key + Fill + Rim
+- **HDRI:** Natural environment lighting
+- **Studio:** Soft boxes, area lights
+
+**What to Avoid:**
+- Single harsh directional light
+- Complete darkness (loses depth)
+- Extreme bloom/glare
+
+---
+
+## Rendering Tips
+
+### Optimizing Render Times
+
+**Hardware:**
+- Use GPU rendering (10-50x faster than CPU!)
+- Preferences → System → Cycles Render Device → CUDA/OptiX/Metal
+- Use multiple GPUs if available
+
+**Settings:**
+- Start with Preview quality (32 samples)
+- Enable Denoising (OptiX or OpenImageDenoise)
+- Reduce resolution for tests (1920×960)
+
+**Scene Optimization:**
+- Use adaptive sampling
+- Simplify geometry not close to camera
+- Bake complex materials where possible
+- Disable unnecessary effects
+
+---
+
+### File Management
+
+**Disk Space Requirements:**
+- EXR files: ~5-20MB per frame
+- 240 frames = 1.2-4.8GB per eye
+- Total: ~2.5-10GB for sequences
+- Final video: 100-500MB
+
+**Organization:**
+```
+project_folder/
+├── project.blend
+└── pe_renders/
+    └── vr180/
+        ├── left/
+        │   ├── left_0001.exr
+        │   └── ...
+        ├── right/
+        │   ├── right_0001.exr
+        │   └── ...
+        └── vr180_final.mp4
+```
+
+---
+
+### Quality Settings
+
+**Preview (Fast):**
+- Samples: 32
+- Denoise: ON
+- Resolution: 50%
+- Use for: Testing, iteration
+
+**Medium (Balanced):**
+- Samples: 128
+- Denoise: ON
+- Resolution: 100%
+- Use for: Client previews
+
+**Production (Final):**
+- Samples: 512+
+- Denoise: ON
+- Resolution: 100%
+- Use for: Final delivery
+
+---
+
+## Troubleshooting
+
+### Step 2 render fails partway
+
+**Solutions:**
+- Check disk space (EXR files are large!)
+- Verify output path exists and is writable
+- Reduce samples if running out of RAM
+- Restart and click button again (skips completed frames)
+
+---
+
+### Stereo alignment looks wrong
+
+**Check:**
+- IPD is set correctly (63mm standard)
+- Cameras are equidistant from rig center
+- No manual camera adjustments after creation
+
+**Solution:** Delete rig and recreate. Don't manually edit cameras!
+
+---
+
+### Video aspect ratio is wrong
+
+**Expected:** 2:1 (e.g., 5120×2560)
+
+**Check:**
+- Compositor scene render settings
+- Both X and Y aspect should be 1.0
+- Resolution matches preset
+
+---
+
+### YouTube doesn't recognize as VR
+
+**Cause:** Missing spatial metadata
+
+**Solution:**
+- Use spatial-media tool to inject metadata
+- Verify filename doesn't have special characters
+- Check video is H.264 codec
+- Upload may take time to process VR
+
+---
+
+### Colors look washed out
+
+**Check:**
+- Color Management in compositor scene
+- Output color space (sRGB vs. Filmic)
+
+**Adjust:**
+- Compositor → Color correction nodes
+- Increase saturation slightly
+- Add contrast
+
+---
+
+## Best Practices
+
+### Content Creation
+
+**Do:**
+- Keep action in front 120° cone
+- Use depth layers (fore/mid/back)
+- Test early, test often
+- Start with short clips
+- Light evenly for depth
+
+**Don't:**
+- Move camera quickly
+- Put objects <0.5m from camera
+- Use excessive camera rotation
+- Create flat backgrounds
+- Neglect audio (VR is immersive!)
+
+---
+
+### Production Workflow
+
+**Do:**
+- Save .blend file before each step
+- Test with Preview quality first
+- Check a few frames before full render
+- Keep organized file structure
+- Back up project files
+
+**Don't:**
+- Skip steps
+- Delete EXR files until final is done
+- Manually edit generated objects
+- Mix rig types in one scene
+
+---
+
+### Publishing
+
+**YouTube VR Requirements:**
+- H.264 codec
+- 2:1 aspect ratio
+- Spatial metadata injected
+- Minimum 24fps (30fps+ preferred)
+- File size <128GB
+
+**Meta Quest:**
+- Similar requirements
+- Consider lower resolution for mobile VR
+- Test on actual device
+
+---
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Toggle sidebar | `N` |
+| Render animation | `Ctrl + F12` |
+| Cancel render | `Esc` |
+| Look through camera | `Numpad 0` |
+| Play animation | `Spacebar` |
+
+---
+
+## Next Steps
+
+**Explore Other Rigs:**
+- [VR360 Workflow](./vr360-workflow.mdx) - Monoscopic 360° VR
+- [Orbit Camera](./orbit-camera.mdx) - Turntable animations
+- [Isometric Camera](./isometric-camera.mdx) - Technical views
+
+**Learn More:**
+- [Getting Started](./getting-started.mdx) - Overview
+- [Troubleshooting](./troubleshooting.mdx) - Common issues
+- [Installation](./installation.mdx) - Setup
+
+---
+
+## Resources
+
+**VR Specifications:**
+- [YouTube VR Guidelines](https://support.google.com/youtube/answer/6178631)
+- [Google Spatial Media](https://github.com/google/spatial-media)
+
+**Testing:**
+- YouTube VR app (mobile)
+- Meta Quest browser
+- VR headset with YouTube support
+
+---
+
+**Happy VR Creating!** 🥽🎥
+
+Part of the [Perpetual Exploration](https://perpetualexploration.com) project.

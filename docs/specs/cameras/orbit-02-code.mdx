@@ -1,0 +1,216 @@
+---
+title: "Orbit Camera: Code & Node Implementation"
+description: "Code specification for the procedural, Geometry Nodes-based Live Controller rig."
+status: Planning
+priority: High
+---
+
+# Orbit Camera: Code & Node Implementation
+
+**See also:**
+- [← Part 1: Live Controller Workflow & UX](./orbit-01-userflow-and-ux.mdx)
+
+---
+
+## Overview
+
+This document outlines the Python and Geometry Nodes implementation for the **Live Controller Workflow**. The previous multi-operator, keyframe-based system is replaced by a single operator that creates a procedural, node-based rig.
+
+**Key Implementation Features:**
+- **Single Operator:** `ORBIT_OT_add_controller` creates the controller object with the Geometry Nodes modifier already attached.
+- **Procedural Animation:** The animation logic is moved from Python into a Geometry Node group. It uses the scene's time to calculate the camera's position on the fly, eliminating the need for baked keyframes.
+- **Modifier Interface:** All user-facing controls are inputs on the Geometry Nodes modifier, making them animatable by default.
+- **Simplified UI:** The main UI is the modifier panel itself. A small panel in the 3D View provides the button to add the rig.
+
+---
+
+## File Structure
+
+All new Orbit Camera code will be placed in a dedicated module: `src/pe_camera_rigs/orbit/`.
+
+- `__init__.py`: Handles registration for this module.
+- `operators.py`: Contains `ORBIT_OT_add_controller`.
+- `panels.py`: Contains the UI panel for adding the controller.
+- `nodes.py`: Contains functions to programmatically create the Geometry Node group.
+
+---
+
+## 1. Main Operator
+
+### File: `orbit/operators.py`
+
+This single operator is responsible for creating the controller and setting its initial state based on a chosen preset.
+
+```python
+import bpy
+from .nodes import create_orbit_camera_node_group
+
+# Define presets with initial values for the modifier inputs
+ORBIT_PRESETS = {
+    'PRODUCT': {'radius': 3.0, 'height': 1.5, 'focal_length': 35.0, 'duration': 240},
+    'DETAIL':  {'radius': 1.5, 'height': 0.0, 'focal_length': 85.0, 'duration': 240},
+    'CHARACTER': {'radius': 4.0, 'height': 1.6, 'focal_length': 50.0, 'duration': 360},
+    # ... other presets
+}
+
+class ORBIT_OT_add_controller(bpy.types.Operator):
+    """Adds a procedural Orbit Camera Controller to the scene"""
+    bl_idname = "cgt.add_orbit_controller"
+    bl_label = "Add Orbit Controller"
+    bl_description = "Creates an interactive, procedural orbit camera rig"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # Property to let the user choose a starting preset
+    preset: bpy.props.EnumProperty(
+        name="Preset",
+        items=[
+            ('PRODUCT', "Product Photography", "A standard product shot setup"),
+            ('DETAIL', "Detail Close-Up", "For small objects like jewelry"),
+            ('CHARACTER', "Character Showcase", "For character turnarounds"),
+        ],
+        default='PRODUCT'
+    )
+
+    def execute(self, context):
+        # 1. Create the node group for the orbit logic
+        node_group = create_orbit_camera_node_group()
+
+        # 2. Create the controller object (an empty)
+        controller = bpy.data.objects.new(name="Orbit_Controller", object_data=None)
+        controller.empty_display_type = 'SPHERE'
+        context.collection.objects.link(controller)
+
+        # 3. Add the Geometry Nodes modifier
+        mod = controller.modifiers.new(name="Orbit Camera", type='NODES')
+        mod.node_group = node_group
+
+        # 4. Set initial values on the modifier from our presets
+        initial_values = ORBIT_PRESETS.get(self.preset, ORBIT_PRESETS['PRODUCT'])
+        mod["Input_4"] = initial_values['radius'] # Input_4 is 'Orbit Radius'
+        mod["Input_5"] = initial_values['height'] # Input_5 is 'Camera Height'
+        mod["Input_6"] = initial_values['focal_length'] # and so on...
+        mod["Input_7"] = initial_values['duration']
+
+        # 5. Make the new rig active
+        context.view_layer.objects.active = controller
+
+        self.report({'INFO'}, f"Orbit Controller created with '{self.preset}' preset.")
+        return {'FINISHED'}
+```
+
+---
+
+## 2. Geometry Node Group
+
+### File: `orbit/nodes.py`
+
+This file contains the core logic. A Python function here will programmatically build the entire node tree for the procedural animation.
+
+```python
+import bpy
+
+def create_orbit_camera_node_group():
+    """
+    Creates the Geometry Node group that procedurally generates and
+    animates the orbit camera.
+    """
+    # Check if node group already exists to avoid duplicates
+    if "GN_Orbit_Camera" in bpy.data.node_groups:
+        return bpy.data.node_groups["GN_Orbit_Camera"]
+
+    node_group = bpy.data.node_groups.new(name="GN_Orbit_Camera", type='GeometryNodeTree')
+    
+    # === Group Inputs (The Modifier UI) ===
+    inputs = node_group.inputs
+    inputs.new('NodeSocketObject', "Target Object")
+    inputs.new('NodeSocketFloat', "Orbit Radius").default_value = 3.0
+    inputs.new('NodeSocketFloat', "Camera Height").default_value = 1.5
+    inputs.new('NodeSocketFloat', "Focal Length").default_value = 35.0
+    inputs.new('NodeSocketInt', "Duration (Frames)").default_value = 240
+    # ... other inputs like Speed, Easing, etc.
+
+    # === Group Outputs ===
+    outputs = node_group.outputs
+    outputs.new('NodeSocketGeometry', "Geometry")
+
+    # === Node Tree Logic ===
+    nodes = node_group.nodes
+    
+    # 1. Get Scene Time (the current frame)
+    scene_time = nodes.new('GeometryNodeInputSceneTime')
+    
+    # 2. Calculate animation progress (e.g., (frame % duration) / duration)
+    #    This involves several Math nodes.
+    
+    # 3. Calculate camera position using sin/cos for the circle
+    #    and combine with Radius and Height inputs.
+    
+    # 4. Create a camera instance
+    cam_node = nodes.new('GeometryNodeObjectInfo')
+    # The operator will need to create a template camera and pass it to the modifier
+    # or the node group will create a default one.
+    
+    # 5. Position the camera instance and point it at the target
+    #    using Set Position and Align Euler to Vector nodes.
+
+    # ... link all the nodes together ...
+
+    return node_group
+```
+*Note: The detailed node setup is complex, but this describes the high-level data flow.*
+
+---
+
+## 3. UI Panels
+
+### File: `orbit/panels.py`
+
+The UI is greatly simplified. We only need one panel in the 3D View's sidebar to provide a menu for adding the orbit controller with different starting presets.
+
+```python
+import bpy
+
+class ORBIT_PT_add_panel(bpy.types.Panel):
+    """Creates a Panel in the 3D Viewport Sidebar for adding Orbit Cams"""
+    bl_label = "Orbit Camera"
+    bl_idname = "ORBIT_PT_add_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    # This will be in the main addon tab
+    bl_parent_id = 'PE_PT_main_panel'
+    bl_order = 1
+
+    def draw(self, context):
+        layout = self.layout
+        
+        col = layout.column()
+        col.label(text="Add Orbit Controller:")
+
+        # An operator for each preset, which calls the main operator
+        # with the correct initial_preset property.
+        
+        # Product Shot Preset
+        op = col.operator("cgt.add_orbit_controller", text="Product Shot", icon='PACKAGE')
+        op.preset = 'PRODUCT'
+        
+        # Character Shot Preset
+        op = col.operator("cgt.add_orbit_controller", text="Character Shot", icon='USER')
+        op.preset = 'CHARACTER'
+
+        # Detail Shot Preset
+        op = col.operator("cgt.add_orbit_controller", text="Detail Shot", icon='VIEW_ZOOM')
+        op.preset = 'DETAIL'
+```
+
+---
+
+## Summary of Changes
+
+The Orbit Camera's implementation is now far more modern, flexible, and powerful.
+
+1.  **Procedural Over Keyframed:** Animation logic is moved from a Python function that creates keyframes (`animate_orbit`) to a Geometry Node group that calculates motion on the fly. This is a huge win for flexibility.
+2.  **Consolidated Operator:** The many `ORBIT_OT_QuickCreate_*` operators are replaced by a single, smarter `ORBIT_OT_add_controller`. Presets are now just starting values for the modifier.
+3.  **UI is the Modifier:** The primary user interface is no longer a custom Python panel but the standard, efficient, and animatable Geometry Nodes modifier interface.
+4.  **Simplified Codebase:** The Python code is now simpler, as its only job is to set up the initial controller object. The complex mathematical logic is handled visually within the node graph.
+
+This new architecture brings the Orbit Camera in line with modern Blender workflows and makes it a far more capable tool.

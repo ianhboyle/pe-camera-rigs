@@ -1,0 +1,689 @@
+---
+title: VR180 Fisheye Camera Rig - Part 5: Python Implementation Code
+description: Complete Python operator implementations ready to copy-paste
+status: Planning
+priority: High
+---
+
+# VR180 Fisheye Camera Rig - Part 5: Python Implementation Code
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr180-tech-01-overview.mdx)
+- [← Part 2: Core Implementation](./vr180-tech-02-implementation.mdx)
+- [← Part 3: Operators & UI (UX Design)](./vr180-tech-03-operators.mdx)
+- [← Part 4: Reference & Testing](./vr180-tech-04-reference.mdx)
+
+---
+
+## Overview
+
+This document contains **copy-paste ready Python code** for all VR180 operators. Use this as your implementation reference.
+
+**File Organization:**
+- `addons/vr_production_toolkit/ui/operators.py` - Operator classes
+- `addons/vr_production_toolkit/ui/panels.py` - UI panel classes
+- `addons/vr_production_toolkit/ui/properties.py` - Property groups (see Part 1)
+
+---
+
+## Operators
+
+### Step 1: Create VR180 Scene Operator
+
+```python
+# File: addons/vr_production_toolkit/ui/operators.py
+
+import bpy
+import math
+import os
+from bpy.types import Operator
+
+# Import core functions from other modules
+from ..camera_rigs import create_vr180_fisheye_rig
+from ..scene_setup import (
+    create_reference_capsule,
+    create_cyclorama,
+    create_lighting_preset,
+)
+from ..render_utils import setup_gpu_rendering, apply_color_space
+from ..gpu_optimization import auto_level_camera
+
+
+class VR180_OT_CreateScene(Operator):
+    """Create complete VR180 scene with camera, lighting, and environment"""
+    bl_idname = "vr180.create_scene"
+    bl_label = "Create VR180 Scene"
+    bl_description = "One-click VR180 scene creation with camera, lighting, cyclorama, and reference objects"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        settings = context.scene.vr180_settings
+
+        try:
+            # 1. Create VR180 camera rig
+            self.report({'INFO'}, "Creating VR180 camera rig...")
+            rig, cam_l, cam_r = create_vr180_fisheye_rig(
+                ipd=settings.ipd,
+                fov=settings.fov,
+                focal_length=settings.focal_length,
+                camera_height=settings.camera_height,
+                resolution=(settings.resolution_x, settings.resolution_y),
+            )
+
+            # 2. Create reference capsule at origin
+            if settings.include_reference:
+                self.report({'INFO'}, "Adding person-scale reference...")
+                capsule = create_reference_capsule(
+                    height=1.8,
+                    radius=0.25,
+                    location=(0, 0, 0),
+                )
+
+            # 3. Create cyclorama background
+            if settings.include_cyclorama:
+                self.report({'INFO'}, "Creating cyclorama background...")
+                floor, wall, curve = create_cyclorama(
+                    size=settings.cyclorama_size,
+                    height=settings.cyclorama_size / 2,
+                    color=settings.cyclorama_color,
+                )
+
+            # 4. Create lighting based on preset
+            if settings.lighting_preset != 'NONE':
+                self.report({'INFO'}, f"Setting up {settings.lighting_preset} lighting...")
+                lights = create_lighting_preset(
+                    preset=settings.lighting_preset,
+                    target_location=(0, 0, 1.0),
+                )
+
+            # 5. Setup GPU rendering
+            setup_gpu_rendering(context.scene)
+
+            # 6. Apply color space
+            apply_color_space(context.scene, settings.color_space)
+
+            # 7. Auto-level camera if enabled
+            if settings.auto_level_on_create:
+                auto_level_camera(rig)
+
+            # 8. Set as active camera
+            context.scene.camera = cam_l
+
+            # Success report
+            self.report({'INFO'}, "✓ VR180 Scene Created!")
+            self.report({'INFO'}, f"  Camera: {rig.name} at (0, 0, {settings.camera_height}m)")
+            self.report({'INFO'}, f"  Resolution: {settings.resolution_x}×{settings.resolution_y}")
+            self.report({'INFO'}, f"  Lighting: {settings.lighting_preset}")
+            self.report({'INFO'}, "")
+            self.report({'INFO'}, "👉 NEXT: Add your content, then click Step 2 to render sequences")
+
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create scene: {str(e)}")
+            return {'CANCELLED'}
+```
+
+---
+
+### Step 2: Render EXR Sequences Operator
+
+```python
+class VR180_OT_RenderSequences(Operator):
+    """Render left and right eye OpenEXR sequences (crash-safe!)"""
+    bl_idname = "vr180.render_sequences"
+    bl_label = "Render EXR Sequences"
+    bl_description = "Render crash-safe frame sequences for left and right eyes"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        settings = context.scene.vr180_settings
+
+        # 1. Find VR180 rig
+        rig = find_vr180_rig()
+        if not rig:
+            self.report({'ERROR'}, "No VR180 rig found! Run Step 1 first.")
+            return {'CANCELLED'}
+
+        # 2. Setup output paths
+        output_base = bpy.path.abspath(settings.output_path)
+        left_path = os.path.join(output_base, "vr180", "left")
+        right_path = os.path.join(output_base, "vr180", "right")
+
+        # Create directories
+        os.makedirs(left_path, exist_ok=True)
+        os.makedirs(right_path, exist_ok=True)
+
+        # 3. Create/update left and right scenes
+        self.report({'INFO'}, "Setting up stereo scenes...")
+        left_scene, right_scene = setup_stereo_scenes(rig, settings)
+
+        # 4. Configure OpenEXR format
+        for scene in (left_scene, right_scene):
+            scene.render.image_settings.file_format = 'OPEN_EXR'
+            scene.render.image_settings.color_depth = '32'
+            scene.render.image_settings.exr_codec = 'DWAA'  # Compressed lossless
+
+        # 5. Render LEFT eye sequence
+        self.report({'INFO'}, "Rendering left eye sequence...")
+        left_scene.render.filepath = os.path.join(left_path, "left_")
+
+        # Check for existing frames (crash recovery)
+        last_frame = find_last_completed_frame(left_path, "left_", ".exr")
+        if last_frame > 0:
+            self.report({'INFO'}, f"Found existing frames up to {last_frame}, resuming...")
+            left_scene.frame_start = last_frame + 1
+
+        # Render left eye
+        bpy.context.window.scene = left_scene
+        bpy.ops.render.render(animation=True, write_still=False)
+
+        # 6. Render RIGHT eye sequence
+        self.report({'INFO'}, "Rendering right eye sequence...")
+        right_scene.render.filepath = os.path.join(right_path, "right_")
+
+        # Check for existing frames (crash recovery)
+        last_frame = find_last_completed_frame(right_path, "right_", ".exr")
+        if last_frame > 0:
+            self.report({'INFO'}, f"Found existing frames up to {last_frame}, resuming...")
+            right_scene.frame_start = last_frame + 1
+
+        # Render right eye
+        bpy.context.window.scene = right_scene
+        bpy.ops.render.render(animation=True, write_still=False)
+
+        # 7. Success report
+        frame_count = context.scene.frame_end - context.scene.frame_start + 1
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "✓ VR180 Sequences Rendered!")
+        self.report({'INFO'}, f"  Left: {frame_count} frames → {left_path}")
+        self.report({'INFO'}, f"  Right: {frame_count} frames → {right_path}")
+        self.report({'INFO'}, "  Format: OpenEXR 32-bit (DWAA compressed)")
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "👉 NEXT: Click Step 3 to load compositor")
+
+        return {'FINISHED'}
+
+
+def find_last_completed_frame(folder_path, prefix, extension):
+    """Find highest numbered frame file (for crash recovery)."""
+    import re
+
+    if not os.path.exists(folder_path):
+        return 0
+
+    files = os.listdir(folder_path)
+    pattern = rf"{prefix}(\d{{4}}){extension}"
+
+    frames = []
+    for f in files:
+        match = re.match(pattern, f)
+        if match:
+            frames.append(int(match.group(1)))
+
+    return max(frames) if frames else 0
+
+
+def setup_stereo_scenes(rig, settings):
+    """Create or update left and right eye scenes."""
+
+    # Get cameras from rig
+    cameras = [obj for obj in rig.children if obj.type == 'CAMERA']
+    if len(cameras) != 2:
+        raise Exception("VR180 rig should have exactly 2 cameras!")
+
+    left_cam = next((c for c in cameras if 'Left' in c.name), cameras[0])
+    right_cam = next((c for c in cameras if 'Right' in c.name), cameras[1])
+
+    # Create or get left scene
+    if "VR180_LeftEye" in bpy.data.scenes:
+        left_scene = bpy.data.scenes["VR180_LeftEye"]
+    else:
+        bpy.ops.scene.new(type='LINK_OBJECTS')
+        left_scene = bpy.context.window.scene
+        left_scene.name = "VR180_LeftEye"
+
+    left_scene.camera = left_cam
+    left_scene.render.resolution_x = settings.resolution_x // 2  # Per-eye width
+    left_scene.render.resolution_y = settings.resolution_y
+    left_scene.render.fps = settings.fps
+
+    # Create or get right scene
+    if "VR180_RightEye" in bpy.data.scenes:
+        right_scene = bpy.data.scenes["VR180_RightEye"]
+    else:
+        bpy.ops.scene.new(type='LINK_OBJECTS')
+        right_scene = bpy.context.window.scene
+        right_scene.name = "VR180_RightEye"
+
+    right_scene.camera = right_cam
+    right_scene.render.resolution_x = settings.resolution_x // 2  # Per-eye width
+    right_scene.render.resolution_y = settings.resolution_y
+    right_scene.render.fps = settings.fps
+
+    return left_scene, right_scene
+```
+
+---
+
+### Step 3: Setup Compositor Operator
+
+```python
+class VR180_OT_SetupCompositor(Operator):
+    """Auto-load sequences into compositor for side-by-side combination"""
+    bl_idname = "vr180.setup_compositor"
+    bl_label = "Setup Compositor"
+    bl_description = "Load EXR sequences into compositor with automatic node setup"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        settings = context.scene.vr180_settings
+
+        # 1. Find sequences
+        output_base = bpy.path.abspath(settings.output_path)
+        left_path = os.path.join(output_base, "vr180", "left")
+        right_path = os.path.join(output_base, "vr180", "right")
+
+        if not os.path.exists(left_path) or not os.path.exists(right_path):
+            self.report({'ERROR'}, "Sequences not found! Run Step 2 first.")
+            return {'CANCELLED'}
+
+        # 2. Create compositor scene
+        self.report({'INFO'}, "Setting up compositor...")
+        comp_scene = setup_compositor_with_image_sequences(
+            left_path=os.path.join(left_path, "left_####.exr"),
+            right_path=os.path.join(right_path, "right_####.exr"),
+            output_resolution=(settings.resolution_x, settings.resolution_y),
+            use_denoising=settings.use_denoising,
+        )
+
+        # 3. Switch to Compositing workspace
+        if "Compositing" in bpy.data.workspaces:
+            context.window.workspace = bpy.data.workspaces["Compositing"]
+
+        # 4. Load preview frame (mid-point)
+        preview_frame = (context.scene.frame_start + context.scene.frame_end) // 2
+        context.scene.frame_set(preview_frame)
+
+        # Success report
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "✓ Compositor Ready!")
+        self.report({'INFO'}, f"  Scene: {comp_scene.name}")
+        self.report({'INFO'}, f"  Resolution: {settings.resolution_x}×{settings.resolution_y} (SBS)")
+        self.report({'INFO'}, "  Nodes: Image Sequence (L+R), Denoise, Translate, AlphaOver")
+        self.report({'INFO'}, f"  Preview: Frame {preview_frame}")
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "🔧 MANUAL TWEAKS (optional):")
+        self.report({'INFO'}, "  - Adjust denoising strength")
+        self.report({'INFO'}, "  - Add color correction")
+        self.report({'INFO'}, "  - Add vignette/effects")
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "👉 NEXT: When happy with preview, click Step 4 to render final video")
+
+        return {'FINISHED'}
+
+
+def setup_compositor_with_image_sequences(left_path, right_path, output_resolution, use_denoising=True):
+    """Create compositor using image sequences."""
+
+    eye_width = output_resolution[0] // 2
+
+    # Create or get compositor scene
+    if "VR180_Compositor" in bpy.data.scenes:
+        comp_scene = bpy.data.scenes["VR180_Compositor"]
+    else:
+        comp_scene = bpy.data.scenes.new("VR180_Compositor")
+
+    comp_scene.render.resolution_x = output_resolution[0]
+    comp_scene.render.resolution_y = output_resolution[1]
+
+    # Enable compositor
+    comp_scene.use_nodes = True
+    tree = comp_scene.node_tree
+
+    # Clear existing nodes
+    for node in tree.nodes:
+        tree.nodes.remove(node)
+
+    # LEFT EYE: Image Sequence node
+    left_seq = tree.nodes.new('CompositorNodeImage')
+    left_seq.label = "Left Eye Sequence"
+    left_seq.location = (-900, 300)
+    # TODO: Load image sequence programmatically
+
+    # RIGHT EYE: Image Sequence node
+    right_seq = tree.nodes.new('CompositorNodeImage')
+    right_seq.label = "Right Eye Sequence"
+    right_seq.location = (-900, -300)
+
+    # DENOISE nodes (if enabled)
+    if use_denoising:
+        dn_left = tree.nodes.new('CompositorNodeDenoise')
+        dn_left.location = (-600, 300)
+
+        dn_right = tree.nodes.new('CompositorNodeDenoise')
+        dn_right.location = (-600, -300)
+
+        # Link
+        tree.links.new(left_seq.outputs['Image'], dn_left.inputs['Image'])
+        tree.links.new(right_seq.outputs['Image'], dn_right.inputs['Image'])
+
+        left_output = dn_left.outputs['Image']
+        right_output = dn_right.outputs['Image']
+    else:
+        left_output = left_seq.outputs['Image']
+        right_output = right_seq.outputs['Image']
+
+    # TRANSLATE nodes (SBS positioning)
+    trans_left = tree.nodes.new('CompositorNodeTranslate')
+    trans_left.location = (-300, 300)
+    trans_left.inputs['X'].default_value = 0
+
+    trans_right = tree.nodes.new('CompositorNodeTranslate')
+    trans_right.location = (-300, -300)
+    trans_right.inputs['X'].default_value = eye_width  # Offset to right half
+
+    tree.links.new(left_output, trans_left.inputs['Image'])
+    tree.links.new(right_output, trans_right.inputs['Image'])
+
+    # ALPHA OVER (combine)
+    alpha_over = tree.nodes.new('CompositorNodeAlphaOver')
+    alpha_over.location = (0, 0)
+
+    tree.links.new(trans_left.outputs['Image'], alpha_over.inputs[1])
+    tree.links.new(trans_right.outputs['Image'], alpha_over.inputs[2])
+
+    # COMPOSITE output
+    comp_out = tree.nodes.new('CompositorNodeComposite')
+    comp_out.location = (300, 100)
+    tree.links.new(alpha_over.outputs['Image'], comp_out.inputs['Image'])
+
+    # VIEWER (preview)
+    viewer = tree.nodes.new('CompositorNodeViewer')
+    viewer.location = (300, -100)
+    tree.links.new(alpha_over.outputs['Image'], viewer.inputs['Image'])
+
+    print(f"Compositor setup complete")
+    print(f"  Left: {left_path}")
+    print(f"  Right: {right_path}")
+
+    return comp_scene
+```
+
+---
+
+### Step 4: Render YouTube Video Operator
+
+```python
+class VR180_OT_RenderYouTube(Operator):
+    """Render final YouTube-ready MP4 with VR180 metadata injection"""
+    bl_idname = "vr180.render_youtube"
+    bl_label = "Render YouTube Video"
+    bl_description = "Composite to side-by-side MP4 and inject VR180 spatial metadata"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        settings = context.scene.vr180_settings
+
+        # 1. Check compositor scene exists
+        if "VR180_Compositor" not in bpy.data.scenes:
+            self.report({'ERROR'}, "Compositor not setup! Run Step 3 first.")
+            return {'CANCELLED'}
+
+        comp_scene = bpy.data.scenes["VR180_Compositor"]
+
+        # 2. Setup output paths
+        output_base = bpy.path.abspath(settings.output_path)
+        output_file = os.path.join(output_base, "vr180_youtube.mp4")
+        temp_file = os.path.join(output_base, "vr180_temp.mp4")
+
+        # 3. Configure H.265 output
+        self.report({'INFO'}, "Configuring H.265 output...")
+        comp_scene.render.filepath = temp_file
+        comp_scene.render.image_settings.file_format = 'FFMPEG'
+        comp_scene.render.ffmpeg.format = 'MPEG4'
+        comp_scene.render.ffmpeg.codec = 'H265'
+        comp_scene.render.ffmpeg.video_bitrate = settings.bitrate * 1000
+        comp_scene.render.ffmpeg.constant_rate_factor = 'HIGH'
+        comp_scene.render.ffmpeg.gopsize = 15
+        comp_scene.render.ffmpeg.ffmpeg_preset = 'GOOD'
+
+        # Audio settings
+        comp_scene.render.ffmpeg.audio_codec = 'AAC'
+        comp_scene.render.ffmpeg.audio_bitrate = 384
+
+        # 4. Render compositor
+        self.report({'INFO'}, "Rendering final video...")
+        bpy.context.window.scene = comp_scene
+        bpy.ops.render.render(animation=True, write_still=False)
+
+        # 5. Inject VR180 metadata
+        if settings.auto_inject_metadata:
+            self.report({'INFO'}, "Injecting VR180 spatial metadata...")
+            success = inject_vr180_metadata(
+                temp_file,
+                output_file,
+                stereo_mode=settings.stereo_mode,
+                verify=settings.verify_metadata,
+            )
+
+            if success:
+                os.remove(temp_file)
+                self.report({'INFO'}, "✓ Metadata injected successfully!")
+            else:
+                self.report({'WARNING'}, "Metadata injection failed - manual injection needed")
+        else:
+            os.rename(temp_file, output_file)
+
+        # 6. Optional cleanup
+        if settings.auto_cleanup_sequences:
+            self.report({'INFO'}, "Cleaning up sequence files...")
+            left_path = os.path.join(output_base, "vr180", "left")
+            right_path = os.path.join(output_base, "vr180", "right")
+            import shutil
+            shutil.rmtree(left_path, ignore_errors=True)
+            shutil.rmtree(right_path, ignore_errors=True)
+
+        # 7. Success report
+        file_size = os.path.getsize(output_file) / (1024**3)
+        frame_count = context.scene.frame_end - context.scene.frame_start + 1
+        duration = frame_count / settings.fps
+
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "=" * 50)
+        self.report({'INFO'}, "✓ VR180 YOUTUBE VIDEO READY!")
+        self.report({'INFO'}, "=" * 50)
+        self.report({'INFO'}, f"File: {output_file}")
+        self.report({'INFO'}, f"Size: {file_size:.2f} GB")
+        self.report({'INFO'}, f"Resolution: {settings.resolution_x}×{settings.resolution_y}")
+        self.report({'INFO'}, f"Duration: {duration:.1f}s ({frame_count} frames @ {settings.fps} fps)")
+        self.report({'INFO'}, f"Bitrate: {settings.bitrate} Mbps")
+        self.report({'INFO'}, f"Metadata: {'✓ Injected' if settings.auto_inject_metadata else '⚠ Manual needed'}")
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "📤 READY TO UPLOAD TO YOUTUBE!")
+        self.report({'INFO'}, "=" * 50)
+
+        return {'FINISHED'}
+
+
+def inject_vr180_metadata(input_file, output_file, stereo_mode='left-right', verify=True):
+    """Inject VR180 spatial metadata using spatial-media tool."""
+
+    # TODO: Implement spatial-media metadata injection
+    # This would use the bundled spatial-media Python library
+
+    try:
+        # Placeholder for actual implementation
+        import shutil
+        shutil.copy(input_file, output_file)
+        return True
+    except Exception as e:
+        print(f"Metadata injection failed: {e}")
+        return False
+```
+
+---
+
+### Helper Functions
+
+```python
+def find_vr180_rig():
+    """Find VR180 rig in scene."""
+    for obj in bpy.data.objects:
+        if obj.name.startswith("VR180_Rig"):
+            return obj
+    return None
+```
+
+---
+
+## UI Panels
+
+```python
+# File: addons/vr_production_toolkit/ui/panels.py
+
+import bpy
+from bpy.types import Panel
+
+
+class VR180_PT_MainPanel(Panel):
+    """VR180 Professional Workflow main panel"""
+    bl_label = "VR180 Professional Workflow"
+    bl_idname = "VR180_PT_main_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_order = 1
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.vr180_settings
+
+        # Quick Start Guide
+        box = layout.box()
+        box.label(text="📋 Quick Start Guide:", icon='INFO')
+        col = box.column(align=True)
+        col.label(text="1️⃣ Create scene with camera & lighting")
+        col.label(text="2️⃣ Render crash-safe EXR sequences")
+        col.label(text="3️⃣ Load compositor (make manual tweaks)")
+        col.label(text="4️⃣ Render final YouTube MP4 with metadata")
+
+        layout.separator()
+
+        # Settings
+        box = layout.box()
+        box.label(text="⚙️ Settings", icon='PREFERENCES')
+
+        box.prop(settings, "resolution_preset")
+
+        col = box.column(align=True)
+        col.label(text="Camera:")
+        col.prop(settings, "ipd")
+        col.prop(settings, "fov")
+        col.prop(settings, "camera_height")
+
+        box.prop(settings, "quality_preset")
+        box.prop(settings, "output_path")
+
+        layout.separator()
+
+        # STEP 1: Create Scene
+        box = layout.box()
+        box.label(text="🎬 STEP 1: Create Scene", icon='SCENE_DATA')
+
+        box.prop(settings, "lighting_preset")
+
+        col = box.column(align=True)
+        col.label(text="Include:")
+        col.prop(settings, "include_cyclorama")
+        if settings.include_cyclorama:
+            col.prop(settings, "cyclorama_size")
+            col.prop(settings, "cyclorama_color")
+        col.prop(settings, "include_reference")
+
+        box.operator("vr180.create_scene", text="1️⃣ Create VR180 Scene", icon='ADD')
+
+        layout.separator()
+
+        # STEP 2: Render Sequences
+        box = layout.box()
+        box.label(text="📹 STEP 2: Render Sequences", icon='RENDER_ANIMATION')
+
+        row = box.row(align=True)
+        row.prop(context.scene, "frame_start")
+        row.prop(context.scene, "frame_end")
+
+        box.prop(settings, "quality_preset")
+
+        box.operator("vr180.render_sequences", text="2️⃣ Render EXR Sequences", icon='RENDER_ANIMATION')
+
+        layout.separator()
+
+        # STEP 3: Setup Compositor
+        box = layout.box()
+        box.label(text="🎨 STEP 3: Setup Compositor", icon='NODE_COMPOSITING')
+
+        box.prop(settings, "use_denoising")
+
+        box.operator("vr180.setup_compositor", text="3️⃣ Setup Compositor", icon='NODETREE')
+
+        layout.separator()
+
+        # STEP 4: Render YouTube Video
+        box = layout.box()
+        box.label(text="🎥 STEP 4: Render YouTube Video", icon='FILE_MOVIE')
+
+        col = box.column(align=True)
+        col.prop(settings, "auto_inject_metadata")
+        col.prop(settings, "verify_metadata")
+        col.prop(settings, "auto_cleanup_sequences")
+
+        box.operator("vr180.render_youtube", text="4️⃣ Render YouTube Video", icon='PLAY')
+
+        layout.separator()
+
+        # Camera Tools
+        box = layout.box()
+        box.label(text="🛠️ Camera Tools", icon='TOOL_SETTINGS')
+
+        row = box.row(align=True)
+        row.operator("vr180.level_camera", text="Level Camera")
+        row.operator("vr180.check_distance", text="Check Distance")
+        row.operator("vr180.verify_setup", text="Verify Setup")
+```
+
+---
+
+## Operator Registration
+
+```python
+# File: addons/vr_production_toolkit/ui/operators.py
+
+classes = (
+    VR180_OT_CreateScene,
+    VR180_OT_RenderSequences,
+    VR180_OT_SetupCompositor,
+    VR180_OT_RenderYouTube,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+**See also:**
+- [← Part 3: Operators & UI (UX Design)](./vr180-tech-03-operators.mdx) - For UX workflows and design
+- [← Part 4: Reference & Testing](./vr180-tech-04-reference.mdx) - For API reference and testing
+
+---
+
+**Status:** Planning - Ready for Implementation
+**Last Updated:** 2025-12-08

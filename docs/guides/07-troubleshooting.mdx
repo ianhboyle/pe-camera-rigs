@@ -1,0 +1,605 @@
+---
+title: "Troubleshooting Guide"
+description: "Common issues and solutions for PE Camera Rigs addon."
+---
+
+# Troubleshooting Guide
+
+This guide covers common issues across all four camera rigs in the PE Camera Rigs addon.
+
+**Quick Navigation:**
+- [Installation Issues](#installation-issues)
+- [UI/Panel Issues](#uipanel-issues)
+- [Orbit Camera Issues](#orbit-camera-issues)
+- [Isometric Camera Issues](#isometric-camera-issues)
+- [VR Workflow Issues](#vr-workflow-issues)
+- [Rendering Issues](#rendering-issues)
+- [Performance Issues](#performance-issues)
+
+---
+
+## Installation Issues
+
+### Addon doesn't appear in preferences after installation
+
+**Solutions:**
+1. Verify zip file structure:
+   - Must contain `pe_camera_rigs/` folder at root
+   - NOT `src/pe_camera_rigs/` or loose files
+2. Check Blender version is 4.0+
+3. Look in "Community" addons (not "Official")
+4. Search for "PE" or "camera" in addon list
+5. Try installing again (remove old version first)
+
+---
+
+### "Module not a valid addon" error
+
+**Cause:** Incorrect zip structure
+
+**Solution:**
+- Download official release from GitHub
+- Or rebuild zip from `src/` directory
+- See [Packaging Guide](./packaging.mdx) for developers
+
+---
+
+### Installation succeeds but addon won't enable
+
+**Check System Console** for errors:
+- Windows: `Window` → `Toggle System Console`
+- macOS/Linux: Launch Blender from Terminal
+
+**Common causes:**
+- Missing Python dependencies (rare)
+- Conflicting addon
+- Corrupt .blend startup file
+
+**Solutions:**
+- Check console for specific error
+- Try in factory settings: `blender --factory-startup`
+- Report issue with console output
+
+---
+
+## UI/Panel Issues
+
+### "PE Cams" tab doesn't appear in sidebar
+
+**Solutions:**
+1. Press `N` to show sidebar (if hidden)
+2. Check addon is **enabled** (checkbox checked)
+3. Restart Blender after enabling
+4. Verify you're in 3D Viewport (not other editor)
+5. Check System Console for errors
+
+---
+
+### Panels are empty or buttons missing
+
+**Causes:**
+- Property registration failed
+- Version mismatch
+- Incomplete installation
+
+**Solutions:**
+1. Disable and re-enable addon
+2. Restart Blender
+3. Reinstall addon (remove old version first)
+4. Check System Console for Python errors
+
+---
+
+### Addon panels disappeared after Blender restart
+
+**Check:**
+- Addon is still enabled in Preferences
+- No Blender update changed addon compatibility
+
+**Solution:**
+- Re-enable addon if unchecked
+- Reinstall if problem persists
+
+---
+
+## Orbit Camera Issues
+
+### Camera doesn't rotate
+
+**Check:**
+1. Animation is playing (`Spacebar`)
+2. **Duration** is not zero in modifier
+3. **Speed Multiplier** is not zero
+4. Timeline end frame > start frame
+
+**Solution:**
+- Set Duration to 240
+- Set Speed Multiplier to 1.0
+- Play animation
+
+---
+
+### Camera rotates but very slowly
+
+**Causes:**
+- Duration too high
+- Speed Multiplier too low
+
+**Solutions:**
+- Decrease **Duration** (try 120)
+- Increase **Speed Multiplier** (try 2.0)
+
+---
+
+### Camera is too close/far from object
+
+**Solution:**
+- Select `Orbit_Controller`
+- Adjust **Orbit Radius** in Modifier Properties
+- Smaller = closer, Larger = farther
+
+---
+
+### Can't see camera view
+
+**Solutions:**
+- Press `Numpad 0` to look through camera
+- Select camera → `View` → `Cameras` → `Set Active Camera`
+- Check camera isn't hidden (eye icon in Outliner)
+
+---
+
+### Object is off-center in frame
+
+**If no target set:**
+- Move object to world origin (0, 0, 0)
+- Or adjust `Orbit_Controller` position
+
+**If target is set:**
+- Verify target object selected in modifier
+- Check target's origin point: `Object` → `Set Origin` → `Origin to Geometry`
+
+---
+
+### Animation not smooth
+
+**Solutions:**
+- Set **Easing** to **1 (In+Out)**
+- Check keyframe interpolation if you manually keyframed
+- Increase timeline frame rate preview
+
+---
+
+## Isometric Camera Issues
+
+### View looks wrong / Not isometric
+
+**Check:**
+1. Looking through camera (`Numpad 0`)
+2. Camera is **Orthographic** (not Perspective)
+   - Camera Properties → Type → Orthographic
+3. **Projection Type** set correctly (0-6)
+
+**Solution:**
+- Modifier should auto-set, but verify Camera Properties
+
+---
+
+### Can't see objects / Everything is tiny
+
+**Cause:** **Ortho Scale** too large
+
+**Solutions:**
+- Decrease **Ortho Scale**
+- Start with 10.0 and adjust
+- Remember: Ortho scale controls zoom, not distance!
+
+---
+
+### Object is off-center
+
+**Remember:** Move the **controller**, not the camera!
+- Select `Isometric_Controller`
+- Press `G` to move
+- Camera angle stays fixed
+
+---
+
+### Projection doesn't match expected angles
+
+**Check:**
+- **Projection Type** value (0-6)
+- Try switching presets to compare
+- For Custom (6), verify angles are in radians
+
+---
+
+### Can't find Isometric settings / Where are the controls?
+
+**Location Changed in v1.1:**
+
+Settings are now in **Object Properties** (not Modifier Properties):
+
+1. Select `Isometric_Controller`
+2. Look for **Object Properties** tab (orange square icon)
+3. Scroll down to **"Isometric Camera Settings"** panel
+4. Edit properties here - updates happen in real-time!
+
+**Note:** You can still see the modifier in Modifier Properties, but editing there is not recommended.
+
+---
+
+### Isometric properties don't update viewport
+
+**Symptoms:**
+- Changed Projection Type but view doesn't change
+- Adjusted Ortho Scale but zoom stays same
+- Custom angles don't affect camera
+
+**Causes:**
+1. **Wrong object selected** - Must select `Isometric_Controller`, not the camera
+2. **Editing modifier directly** - Use Object Properties instead
+3. **Viewport not refreshing** (rare, known Blender limitation)
+
+**Solutions:**
+1. Verify you're editing properties in **Object Properties** panel
+2. Select `Isometric_Controller` object (not camera)
+3. If still not updating, try:
+   - Press `Numpad 0` to refresh camera view
+   - Switch to another viewport and back
+   - Save and reload file (forces update)
+
+**Known Limitation:**
+There's a rare Blender issue ([#87006](https://developer.blender.org/T87006)) where geometry node modifier updates may not trigger viewport refresh. If you experience persistent issues, please report with your Blender version.
+
+---
+
+### Depth of field doesn't work
+
+**This is normal:** Orthographic cameras don't support DOF
+
+**Workaround:**
+- Use Mist Pass for depth
+- Fake DOF in compositor
+
+---
+
+## VR Workflow Issues
+
+### Step 2 render fails partway through
+
+**Solutions:**
+1. **Check disk space** - EXR files are 5-20MB each!
+2. Verify output path exists and is writable
+3. Reduce samples if running out of RAM
+4. **Resume:** Click button again (skips completed frames)
+
+---
+
+### Step 3 compositor setup fails
+
+**Check:**
+1. Step 2 completed successfully
+2. EXR files exist in output folder
+3. File paths are correct (use `//` for relative)
+4. Scene hasn't been renamed
+
+**Solution:**
+- Verify output folder has .exr files
+- Check console for specific error
+
+---
+
+### Step 4 video has wrong aspect ratio
+
+**Expected:**
+- VR180: 2:1 (e.g., 5120×2560)
+- VR360: 2:1 (e.g., 5120×2560)
+
+**Check:**
+- Compositor scene render settings
+- Aspect X and Y both = 1.0
+- Resolution matches preset
+
+---
+
+### YouTube doesn't recognize VR format
+
+**Cause:** Missing spatial metadata
+
+**Solutions:**
+1. Use `spatial-media` tool to inject metadata:
+   ```bash
+   python -m spatialmedia -i -s left-right vr180_final.mp4 vr180_final_youtube.mp4
+   ```
+2. Verify:
+   - Video codec is H.264
+   - 2:1 aspect ratio preserved
+   - Filename has no special characters
+
+---
+
+### VR180 stereo alignment looks wrong
+
+**Check:**
+- IPD is 63mm (standard)
+- Cameras equidistant from rig
+- No manual camera edits after creation
+
+**Solution:**
+- Delete rig and recreate
+- Don't manually adjust cameras!
+
+---
+
+### Colors look washed out in VR output
+
+**Check:**
+- Color Management in compositor scene
+- Output color space (sRGB vs. Filmic)
+
+**Solutions:**
+- Add color correction nodes in compositor
+- Increase saturation slightly
+- Adjust contrast
+
+---
+
+## Rendering Issues
+
+### Render is too slow
+
+**Hardware:**
+1. Enable GPU rendering:
+   - `Preferences` → `System` → `Cycles Render Device`
+   - Select CUDA/OptiX (NVIDIA) or Metal (Mac)
+2. Use multiple GPUs if available
+
+**Settings:**
+1. Reduce samples (start with 32)
+2. Enable denoising
+3. Lower resolution for tests
+4. Use Adaptive Sampling
+5. Reduce Light Path bounces
+
+**Scene:**
+1. Simplify geometry
+2. Reduce subdivision levels
+3. Use instances instead of duplicates
+4. Disable volumetrics if not needed
+
+---
+
+### Render crashes / Out of memory
+
+**Solutions:**
+1. Reduce **Tile Size** (Render Properties)
+2. Lower **Texture Resolution**
+3. Reduce **Sample Count**
+4. Close other applications
+5. Render in parts (use Render Region)
+6. Upgrade RAM if consistently short
+
+---
+
+### Denoiser not working
+
+**Check:**
+1. Denoising is enabled (Render Properties → Denoising)
+2. Sufficient samples (minimum 16-32)
+3. Using compatible denoiser:
+   - OptiX (NVIDIA RTX GPUs)
+   - OpenImageDenoise (any GPU/CPU)
+
+**Solution:**
+- Try different denoiser
+- Increase samples if too noisy
+
+---
+
+### Renders look different from viewport
+
+**Common causes:**
+- Viewport render != final render engine
+- Different sample counts
+- Viewport clipping
+- Hidden objects/layers
+
+**Solutions:**
+1. Match render engine (Cycles/Eevee)
+2. Check render visibility (camera icon in Outliner)
+3. Verify render layers
+4. Test render small region first
+
+---
+
+## Performance Issues
+
+### Viewport is laggy with rig active
+
+**Interactive Rigs (Orbit/Isometric):**
+- Geometry Nodes update in real-time
+- Complex scenes may slow down
+
+**Solutions:**
+1. Hide non-essential objects
+2. Use Collections to organize
+3. Reduce viewport samples
+4. Simplify geometry
+5. Disable overlays temporarily
+
+---
+
+### Timeline playback is slow
+
+**Solutions:**
+1. Reduce viewport rendering quality
+2. Hide complex objects
+3. Use bbox display for heavy geometry
+4. Reduce scene sample count
+5. Play at lower fps for preview
+
+---
+
+### Modifier properties don't update viewport
+
+**Solutions:**
+1. Ensure Object Mode (not Edit Mode)
+2. Scrub timeline to force update
+3. Change another modifier value
+4. Restart Blender if stuck
+
+---
+
+## General Issues
+
+### Rig objects appear in render
+
+**Controller objects:**
+- Empties don't render (invisible in final)
+- Template cameras are hidden
+- If visible, check object render visibility
+
+**Solution:**
+- Disable render for object: Outliner → Camera icon
+
+---
+
+### Can't find created objects
+
+**Check Outliner:**
+1. Disable filters (funnel icon)
+2. Enable "Show Hidden" (eye icon)
+3. Search by name:
+   - Orbit: `Orbit_Controller`
+   - Isometric: `Isometric_Controller`
+   - VR180: `VR180_Rig`
+   - VR360: `VR360_Camera`
+
+---
+
+### Properties changed but nothing happens
+
+**Check:**
+1. Correct object selected
+2. In Object Mode (not Edit Mode)
+3. Looking at right modifier/property tab
+4. Timeline updates if animated
+
+---
+
+### Error: "Node group not found"
+
+**Cause:** Geometry node group missing/corrupted
+
+**Solution:**
+- Delete rig and recreate
+- Don't manually edit node groups
+- Report if recurring
+
+---
+
+## Getting More Help
+
+### Systematic Troubleshooting
+
+1. **Check System Console** first
+2. **Verify Blender version** (4.0+)
+3. **Test in clean scene** (rule out project issues)
+4. **Try factory settings:** `blender --factory-startup`
+5. **Check GitHub Issues** for similar problems
+
+---
+
+### Reporting Bugs
+
+When reporting issues, include:
+
+1. **Blender version:** `Help` → `About Blender`
+2. **Operating system:** Windows/Mac/Linux + version
+3. **Addon version:** Check `bl_info` or release
+4. **Steps to reproduce:** Detailed, numbered steps
+5. **Error messages:** From System Console
+6. **Screenshots:** If UI-related
+
+**Report here:** [GitHub Issues](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+
+---
+
+### Useful Blender Commands
+
+**System Console:**
+- Windows: `Window` → `Toggle System Console`
+- Mac/Linux: Launch from Terminal
+
+**Factory Reset:**
+```bash
+blender --factory-startup
+```
+
+**Python Console** (for debugging):
+```python
+# Check if addon loaded
+import bpy
+'pe_camera_rigs' in bpy.context.preferences.addons
+
+# List rig objects
+[obj.name for obj in bpy.data.objects if 'Orbit' in obj.name]
+```
+
+---
+
+## Quick Reference
+
+### Common Fixes
+
+| Problem | Quick Fix |
+|---------|-----------|
+| Panels missing | Restart Blender |
+| Can't see camera | Press `Numpad 0` |
+| Animation not playing | Press `Spacebar` |
+| Render too slow | Enable GPU, reduce samples |
+| Out of disk space | Clear temp files, check output folder |
+| Video not VR | Add spatial metadata |
+
+---
+
+### Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Toggle sidebar | `N` |
+| Look through camera | `Numpad 0` |
+| Play animation | `Spacebar` |
+| System Console (Win) | `Window` menu |
+| Render | `F12` |
+| Cancel render | `Esc` |
+
+---
+
+## Still Having Issues?
+
+1. **Check other guides:**
+   - [Installation](./installation.mdx)
+   - [Getting Started](./getting-started.mdx)
+   - Specific rig guides
+
+2. **Search GitHub Issues:**
+   - [Existing Issues](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+   - Someone may have solved it already
+
+3. **Create new issue:**
+   - Include all requested information
+   - Be specific and detailed
+   - Attach console output
+
+4. **Community help:**
+   - Blender forums
+   - Discord communities
+   - Reddit r/blender
+
+---
+
+**We're here to help!** 🛠️
+
+Part of the [Perpetual Exploration](https://perpetualexploration.com) project.

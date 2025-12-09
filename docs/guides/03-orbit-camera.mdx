@@ -1,0 +1,446 @@
+---
+title: "Orbit Camera Guide"
+description: "Complete guide to creating procedural turntable animations with the Orbit Camera rig."
+---
+
+# Orbit Camera Guide
+
+The **Orbit Camera** creates smooth, procedural turntable animations that automatically rotate around a target object. Perfect for product showcases, character turnarounds, and 360° views.
+
+**Type:** Interactive Rig (Geometry Nodes)
+**Setup Time:** 30 seconds
+**Skill Level:** Beginner-friendly
+
+---
+
+## What You'll Learn
+
+- How to create an orbit camera rig
+- Understanding all camera settings
+- Creating dynamic animations with keyframes
+- Advanced techniques (zoom spirals, speed curves)
+- Troubleshooting common issues
+
+---
+
+## Quick Start (2 Minutes)
+
+### Step 1: Add the Rig
+
+1. Open the **3D Viewport** sidebar (press `N`)
+2. Click the **"PE Cams"** tab
+3. Find the **"Orbit Camera"** panel
+4. Select a preset from the dropdown:
+   - **Product Turntable** - Eye-level 360° rotation
+   - **Aerial View** - High-angle orbit for architecture
+   - **Low Angle** - Dramatic upward view
+   - **Custom** - Default starting values
+5. Click **"Add Orbit Rig"**
+
+**Result:** Two objects appear in your scene:
+- `Orbit_Controller` - The brain of the rig (empty object)
+- `Orbit_Camera` - The actual camera (child of controller)
+
+### Step 2: Set a Target (Optional)
+
+The camera can orbit around a specific object:
+
+1. **Select** the `Orbit_Controller` object
+2. Go to **Modifier Properties** tab (wrench icon)
+3. Find the **"Orbit Camera"** modifier
+4. Click the **eyedropper** next to "Target Object"
+5. Click an object in your scene
+
+**Tip:** If no target is set, the camera orbits around the world origin (0, 0, 0).
+
+### Step 3: Preview Animation
+
+1. Press **`Numpad 0`** to look through the camera
+2. Press **`Spacebar`** to play animation
+3. Watch the camera automatically rotate!
+
+**Done!** You have a working turntable animation.
+
+---
+
+## Understanding the Settings
+
+All controls are in the **Modifier Properties** tab when `Orbit_Controller` is selected.
+
+### 🎯 Target Settings
+
+**Target Object** - Object to orbit around
+- Leave empty to orbit world origin (0, 0, 0)
+- Use eyedropper to select any object
+- Camera maintains distance from target center
+
+### 📷 Camera Settings
+
+**Orbit Radius** (default: 3.0m)
+- Distance from target to camera
+- Smaller values = closer shots
+- Larger values = wider establishing shots
+- Can be animated for zoom effects
+
+**Camera Height** (default: 1.5m)
+- Vertical offset above/below target
+- Positive = camera above target
+- Negative = camera below target
+- Zero = same height as target
+- Adjust based on your subject
+
+**Focal Length** (default: 35mm)
+- Camera lens focal length in millimeters
+- **24mm** = Wide angle (exaggerated perspective)
+- **35mm** = Slightly wide (good for products)
+- **50mm** = Standard "human eye" view
+- **85mm+** = Telephoto (compressed perspective, flattering for characters)
+
+### 🎬 Animation Settings
+
+**Duration (Frames)** (default: 240)
+- How many frames for one complete 360° rotation
+- At 24fps: 240 frames = 10 seconds
+- At 30fps: 240 frames = 8 seconds
+- **Shorter duration** = faster rotation
+- **Longer duration** = slower, more detailed view
+
+**Speed Multiplier** (default: 1.0)
+- Scales the animation speed
+- **1.0** = normal speed
+- **2.0** = twice as fast
+- **0.5** = half speed (slow motion)
+- **0** = paused
+- Can be keyframed for speed changes
+
+**Reverse Direction** (checkbox)
+- ☐ Unchecked = Counter-clockwise (default)
+- ☑ Checked = Clockwise
+- Flip rotation direction
+
+**Easing** (0-3)
+- Controls animation curve style
+- **0 = Linear** - Constant speed throughout
+- **1 = In+Out** - Smooth start and end (most natural)
+- **2 = In** - Accelerate from stop
+- **3 = Out** - Decelerate to stop
+
+### 💡 Advanced Settings
+
+**Start Angle Offset** (default: 0°)
+- Rotate the starting position
+- **0°** = Front view
+- **90°** = Right side view
+- **180°** = Back view
+- **270°** = Left side view
+- Useful for starting from specific angles
+
+---
+
+## Step-by-Step Tutorial
+
+### Tutorial 1: Basic Product Turntable
+
+**Goal:** Create a simple 360° product rotation
+
+1. **Import or create** your product model
+2. **Center the object** at world origin (0, 0, 0)
+   - Select object → `Object` → `Set Origin` → `Origin to Geometry`
+   - Move to origin: `Alt + G`
+3. **Add Orbit Rig** with "Product Turntable" preset
+4. **Look through camera:** Press `Numpad 0`
+5. **Adjust framing:**
+   - Select `Orbit_Controller`
+   - Modifier Properties → Adjust **Orbit Radius** until object fills frame
+   - Adjust **Camera Height** to get desired angle
+6. **Set timeline:**
+   - End Frame: 240 (for 10 seconds at 24fps)
+7. **Render:**
+   - `Render Properties` → Set samples, resolution
+   - `Output Properties` → Set file path and format
+   - Press `Ctrl + F12` to render animation
+
+**Result:** Smooth 360° product turntable!
+
+---
+
+### Tutorial 2: Character Showcase with Dynamic Zoom
+
+**Goal:** Camera spirals inward while rotating
+
+1. **Add Orbit Rig** with "Custom" preset
+2. **Select** `Orbit_Controller`
+3. **Go to frame 1** in timeline
+4. Set **Orbit Radius** to **5.0** (far away)
+5. **Hover over the Orbit Radius value** and press **`I`** to insert keyframe
+6. **Go to frame 240** (end of animation)
+7. Set **Orbit Radius** to **2.0** (close up)
+8. Press **`I`** again to keyframe
+9. **Play animation** (`Spacebar`)
+
+**Result:** Camera spirals inward while orbiting - dramatic reveal!
+
+**Bonus:** Change **Easing** to **1 (In+Out)** for smoother movement.
+
+---
+
+### Tutorial 3: Architecture Flyover
+
+**Goal:** High-angle orbit around a building
+
+1. **Add Orbit Rig** with "Aerial View" preset
+2. **Select** `Orbit_Controller`
+3. Set **Orbit Radius** to **20.0** (for large buildings)
+4. Set **Camera Height** to **10.0** (high angle)
+5. Set **Focal Length** to **24mm** (wide angle)
+6. Use **eyedropper** to target the building
+7. **Play animation**
+
+**Result:** Aerial orbit around architecture!
+
+---
+
+## Advanced Techniques
+
+### Variable Speed Animation
+
+Create animations that speed up and slow down:
+
+1. **Frame 1:** Speed Multiplier = **0.2** → Keyframe (`I`)
+2. **Frame 60:** Speed Multiplier = **2.0** → Keyframe
+3. **Frame 180:** Speed Multiplier = **2.0** → Keyframe
+4. **Frame 240:** Speed Multiplier = **0.2** → Keyframe
+
+**Result:** Slow start → Fast middle → Slow end
+
+### Multiple Camera Setup
+
+Create different orbit cameras for one scene:
+
+1. **Add first Orbit Rig** - Name it "Orbit_Wide"
+   - Orbit Radius: 5.0
+   - Camera Height: 2.0
+2. **Add second Orbit Rig** - Name it "Orbit_Close"
+   - Orbit Radius: 2.0
+   - Camera Height: 1.0
+3. **Switch cameras** during timeline:
+   - Select camera → Scene Properties → Active Camera
+
+**Use case:** Cut between wide and close shots in one animation
+
+### Combined with Manual Animation
+
+The orbit is automatic, but you can still animate other properties:
+
+**Example:** Rising camera while orbiting
+1. Select `Orbit_Controller`
+2. Keyframe the **Location Z** property (not the modifier!)
+3. Frame 1: Z = 0
+4. Frame 240: Z = 5.0
+
+**Result:** Camera orbits while rising upward
+
+---
+
+## Rendering Tips
+
+### Optimal Settings
+
+**For Product Renders:**
+```
+Render Engine: Cycles
+Samples: 256 (production) / 64 (preview)
+Denoising: ON (OptiX or OpenImageDenoise)
+Resolution: 1920×1080 or higher
+Format: PNG (stills) / H.264 (video)
+```
+
+**For Previews:**
+```
+Render Engine: Eevee
+Samples: 32
+Viewport: Viewport Render Animation (faster)
+```
+
+### Render Shortcuts
+
+- **Single frame:** `F12`
+- **Full animation:** `Ctrl + F12`
+- **Viewport render:** `Render` → `Viewport Render Animation` (faster preview)
+
+### Output Settings
+
+**Video Output:**
+- Format: FFmpeg Video
+- Container: MPEG-4
+- Codec: H.264
+- Quality: High Quality (or Perceptually Lossless)
+
+**Image Sequence:**
+- Format: PNG or EXR
+- Better for resuming failed renders
+- Can compile to video later
+
+---
+
+## Troubleshooting
+
+### Camera doesn't rotate
+
+**Check:**
+- Animation is playing (press `Spacebar`)
+- **Duration** is not zero in modifier
+- Timeline end frame is beyond frame 1
+- **Speed Multiplier** is not zero
+
+**Solution:** Set Duration to 240 and play animation.
+
+---
+
+### Camera rotates but very slowly
+
+**Likely cause:** Duration is too high or Speed Multiplier is too low
+
+**Solution:**
+- Decrease **Duration** (try 120 frames)
+- Increase **Speed Multiplier** (try 2.0)
+
+---
+
+### Camera is too close/far from object
+
+**Solution:**
+- Select `Orbit_Controller`
+- Adjust **Orbit Radius** in Modifier Properties
+- Smaller = closer, Larger = farther
+
+---
+
+### Can't see camera view
+
+**Solutions:**
+- Press `Numpad 0` to look through camera
+- Select camera → `View` → `Cameras` → `Set Active Camera`
+- Check camera isn't hidden (eye icon in Outliner)
+
+---
+
+### Object is off-center in frame
+
+**If no target set:**
+- Move object to world origin (0, 0, 0)
+
+**If target is set:**
+- Check target object is correctly selected in modifier
+- Target's origin point determines orbit center
+- Fix origin: Select target → `Object` → `Set Origin` → `Origin to Geometry`
+
+---
+
+### Animation not smooth
+
+**Check Easing setting:**
+- Set **Easing** to **1 (In+Out)** for smoothest motion
+- **0 (Linear)** can feel robotic
+- If you keyframed values, check F-Curve interpolation
+
+---
+
+### Controller object is in the way
+
+**The controller is just an empty:**
+- It won't render (empties don't appear in final render)
+- Hide it in viewport: Select → `H`
+- Unhide: `Alt + H`
+
+---
+
+## Keyboard Shortcuts Reference
+
+| Action | Shortcut |
+|--------|----------|
+| Look through camera | `Numpad 0` |
+| Play animation | `Spacebar` |
+| Insert keyframe | `I` (hover over value) |
+| Go to frame 1 | `Shift + Left Arrow` |
+| Go to last frame | `Shift + Right Arrow` |
+| Hide selected | `H` |
+| Unhide all | `Alt + H` |
+| Render image | `F12` |
+| Render animation | `Ctrl + F12` |
+
+---
+
+## Use Cases & Examples
+
+### Product Photography
+- E-commerce turntables
+- 360° product views
+- Detail showcases
+
+### Character Art
+- Character turnarounds for portfolios
+- Animation showcases
+- Character design sheets
+
+### Architecture
+- Building flybys
+- Site planning presentations
+- Real estate showcases
+
+### Motion Graphics
+- Logo reveals
+- Title sequences
+- Abstract animations
+
+---
+
+## Tips & Best Practices
+
+**Starting Out:**
+- Use presets first, customize later
+- Always look through camera before rendering
+- Start with Easing = 1 (In+Out) for natural motion
+- Preview with low samples before final render
+
+**For Best Results:**
+- Center your subject at origin or use target object
+- Use 240-360 frames for smooth, watchable turntables
+- Match **Focal Length** to your subject (35mm for products, 50mm+ for characters)
+- Add fill lights to eliminate dark sides during rotation
+
+**Performance:**
+- Complex geometry may slow viewport playback
+- Hide non-essential objects during preview
+- Use Collections to organize scene
+- Lower viewport samples for faster playback
+
+---
+
+## Next Steps
+
+**Explore Other Rigs:**
+- [Isometric Camera](./isometric-camera.mdx) - For technical/game art views
+- [VR180 Workflow](./vr180-workflow.mdx) - For stereoscopic VR content
+- [VR360 Workflow](./vr360-workflow.mdx) - For 360° panoramic VR
+
+**Learn More:**
+- [Getting Started Guide](./getting-started.mdx) - Overview of all rigs
+- [Troubleshooting Guide](./troubleshooting.mdx) - Common issues
+- [Installation Guide](./installation.mdx) - Setup & preferences
+
+---
+
+## Feedback & Support
+
+**Found a bug?** [Report on GitHub](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+
+**Have questions?** Check existing issues or ask in Discussions.
+
+**Want to improve this guide?** Contributions welcome!
+
+---
+
+**Happy Orbiting!** 🎥🔄
+
+Part of the [Perpetual Exploration](https://perpetualexploration.com) project.

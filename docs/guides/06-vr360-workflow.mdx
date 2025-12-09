@@ -1,0 +1,648 @@
+---
+title: "VR360 Workflow Guide"
+description: "Complete 4-step workflow for creating monoscopic 360° VR content with the VR360 rig."
+---
+
+# VR360 Workflow Guide
+
+The **VR360 Workflow** creates professional monoscopic 360° VR content for YouTube 360, Facebook 360, and VR platforms. This crash-safe, 4-step pipeline guides you through scene setup, rendering, compositing, and export.
+
+**Type:** Workflow Rig (4-Step Pipeline)
+**Setup Time:** 5-10 minutes
+**Skill Level:** Intermediate
+**Output:** Equirect angular 360° video (2:1 aspect ratio)
+
+---
+
+## What You'll Learn
+
+- Understanding VR360 monoscopic format
+- Complete 4-step production workflow
+- 360° scene composition techniques
+- Crash-safe EXR rendering
+- Adding spatial metadata for YouTube
+- Best practices for panoramic VR
+
+---
+
+## What is VR360 Mono?
+
+**VR360 Mono** captures a full 360×180° sphere around the camera in a single (monoscopic) view. Unlike VR180, there's no stereoscopic depth, but viewers can look in **any direction** including behind and above/below.
+
+**Key Characteristics:**
+- **360° horizontal × 180° vertical** coverage
+- **Monoscopic** (single image, no stereo depth)
+- **Equirectangular** projection (like a world map)
+- **2:1 aspect ratio** (e.g., 5120×2560)
+- **Full freedom** of rotation
+
+**Use Cases:**
+- YouTube 360 videos
+- Virtual tours
+- Location scouting
+- Event coverage
+- Educational content
+- Real estate walkthroughs
+
+**Advantages:**
+- Full 360° coverage (look anywhere!)
+- Simpler than stereoscopic
+- Smaller file sizes than VR180
+- Easier to compose (spherical thinking)
+
+**Limitations:**
+- No depth perception (monoscopic)
+- Can't hide anything (camera sees everything!)
+- Viewer controls orientation (no camera rotation)
+
+---
+
+## VR360 vs VR180
+
+| Feature | VR360 Mono | VR180 Stereo |
+|---------|------------|--------------|
+| **Coverage** | 360° sphere | 180° front hemisphere |
+| **Depth** | No (monoscopic) | Yes (stereoscopic) |
+| **Cameras** | 1 | 2 (left/right) |
+| **Best For** | Tours, locations | Narrative, seated experiences |
+| **File Size** | Smaller | Larger |
+| **Viewer Freedom** | Complete | Front-facing only |
+
+---
+
+## The 4-Step Workflow
+
+```
+Step 1: Create Scene
+  ↓
+Step 2: Render 360° Sequence
+  ↓
+Step 3: Setup Compositor
+  ↓
+Step 4: Render YouTube Video
+```
+
+**Why 4 steps?**
+- **Crash Safety:** Resume from last frame
+- **Iteration:** Adjust compositing separately
+- **Quality Control:** Review before final export
+- **Flexibility:** Independent step execution
+
+---
+
+## Quick Start (15 Minutes)
+
+### Prerequisites
+
+- Blender 4.0+
+- PE Camera Rigs addon installed
+- 360° scene (remember: camera sees everywhere!)
+- Sufficient disk space
+
+### Step 1: Create VR360 Scene (2 minutes)
+
+1. Open **PE Cams** sidebar (press `N`)
+2. Find **"VR360 Mono Professional Workflow"** panel
+3. **Configure Global Settings:**
+   - **Preset:** YouTube 5K (recommended)
+   - **Quality:** Preview / Production
+   - **Output Path:** `//pe_renders/vr360/`
+
+4. **Configure STEP 1 Settings:**
+   - **Lighting:** Choose setup
+   - **☑ Include Cyclorama Stage** (optional)
+   - **☑ Include Reference Sphere** (for testing)
+
+5. Click **`[1️⃣ Create VR360 Scene]`**
+
+**Result:**
+- `VR360_Camera` with panoramic settings
+- Lighting (if enabled)
+- Cyclorama (if enabled)
+
+---
+
+### Step 2: Compose Your 360° Scene (Variable)
+
+**Critical 360° Thinking:**
+- Camera sees **everything** (including behind, above, below)
+- No "off-camera" areas
+- Think spherically!
+
+**Camera Positioning:**
+1. Position `VR360_Camera` at viewer's eye height
+   - Standing: 1.6-1.8m Z
+   - Sitting: 1.0-1.2m Z
+2. Camera represents viewer's head position
+3. Face camera toward main content (optional - viewer can look anywhere)
+
+**Scene Composition:**
+- **Front (0°):** Primary content
+- **Sides (±90°):** Secondary interest
+- **Back (180°):** Don't leave empty - add context!
+- **Ceiling:** Consider overhead details
+- **Floor:** Ground textures, shadows
+
+**What to Hide:**
+- Tripods, stands, equipment
+- Lights (unless intentionally visible)
+- Cameras, rigs
+- Unfinished areas
+
+**Tip:** Add interesting details in all directions. Empty space breaks immersion!
+
+---
+
+### Step 3: Render 360° Sequence (Hours - Variable)
+
+1. **Save your .blend file**
+2. Set **Frame Start** and **Frame End**
+3. In **STEP 2**, click **`[2️⃣ Render EXR Sequence]`**
+
+**What Happens:**
+- Renders full 360° panorama for each frame
+- Outputs to `//output/vr360/frames/frame_####.exr`
+- Equirectangular projection (2:1)
+- Monoscopic (one camera only)
+
+**Time Estimate:**
+- Preview: 1-3 min/frame
+- Production: 5-15 min/frame
+- Depends on scene complexity
+
+**Crash Safety:**
+- Resume anytime (skips completed frames)
+- Check output folder for progress
+- EXR files preserve all data
+
+---
+
+### Step 4: Setup Compositor (30 seconds)
+
+1. Wait for Step 2
+2. In **STEP 3**, click **`[3️⃣ Setup Compositor]`**
+
+**What Happens:**
+- Creates `VR360_Compositor` scene
+- Loads EXR sequence
+- Auto-configured nodes
+
+**To View/Edit:**
+- Switch to `VR360_Compositor` scene
+- Open **Compositing** workspace
+- Adjust nodes as needed
+
+---
+
+### Step 5: Render Final Video (Hours)
+
+1. In **STEP 4**, click **`[4️⃣ Render YouTube Video]`**
+
+**What Happens:**
+- Renders compositor output
+- Outputs equirectangular video
+- H.264 codec (YouTube-compatible)
+- 2:1 aspect ratio
+
+---
+
+### Step 6: Add 360° Metadata (5 minutes)
+
+**Required for YouTube to enable 360° viewing!**
+
+**Using spatial-media:**
+```bash
+python -m spatialmedia -i vr360_final.mp4 vr360_final_youtube.mp4
+```
+
+Upload `vr360_final_youtube.mp4` to YouTube.
+
+---
+
+## Understanding the Settings
+
+### Global Settings
+
+**Preset** - Resolution
+- **YouTube 5K:** 5120×2560 (recommended)
+- **YouTube 4K:** 4096×2048
+- **YouTube 1080p:** 1920×960 (preview)
+- **Custom:** Your own
+
+**Quality** - Sample count
+- **Preview:** 32 samples (fast)
+- **Medium:** 128 samples
+- **Production:** 512+ samples (clean)
+
+**Output Path** - Save location
+- Use `//` for relative paths
+- Ensure sufficient space
+
+---
+
+### STEP 1 Settings
+
+**Lighting**
+- **None:** Use scene lights
+- **3-Point Studio:** Classic setup
+- **HDRI:** Environment lighting
+- **Sun + Sky:** Outdoor
+
+**Include Cyclorama Stage**
+- Infinite white background
+- Useful for isolated subjects
+
+**Include Reference Sphere**
+- Test sphere for verification
+- Delete before final render
+
+---
+
+## 360° Scene Composition
+
+### Directional Zones
+
+Think of your scene as a sphere divided into zones:
+
+**Front Hemisphere (0-90°)**
+- Primary content
+- Main action
+- Where most viewers look first
+
+**Side Zones (90-180° left/right)**
+- Secondary content
+- Contextual elements
+- Peripheral interest
+
+**Back Hemisphere (180-270°)**
+- Background context
+- Environment detail
+- Often overlooked but important!
+
+**Vertical (Above/Below)**
+- Ceiling details
+- Sky/environment
+- Floor/ground
+
+---
+
+### Depth Layers
+
+Even without stereo depth, use compositional depth:
+
+**Foreground (2-5m)**
+- Nearest interesting elements
+- Frame the view
+- Add context
+
+**Midground (5-15m)**
+- Main subjects
+- Primary action
+- Focal point
+
+**Background (15m+)**
+- Environment
+- Atmosphere
+- Horizon/sky
+
+---
+
+### Best Practices
+
+**Do:**
+- Add interest in all 360°
+- Consider ceiling and floor
+- Use environmental storytelling
+- Hide equipment
+- Think about viewer's natural gaze direction
+
+**Don't:**
+- Leave any direction completely empty
+- Put important content only in one direction
+- Forget about what's above/below
+- Show cameras, lights, tripods
+
+---
+
+## Camera Movement in VR360
+
+### General Rules
+
+**Minimize camera movement!**
+- Static cameras work best
+- Viewer controls orientation (no camera rotation!)
+- Movement can cause motion sickness
+
+### Safe Movements
+
+**Dollies (Forward/Backward)**
+- Slow, smooth movement
+- Constant speed
+- Use for virtual tours
+
+**Height Changes**
+- Gradual vertical movement
+- Simulate climbing stairs
+- Elevator rides
+
+**What to NEVER Do:**
+- **Rotate camera** (viewer controls rotation!)
+- Fast pans
+- Shaky movements
+- Sudden starts/stops
+
+### If You Must Move
+
+**Guidelines:**
+- Maximum speed: Walk pace
+- Ease in/out (bezier curves)
+- Warn viewers (title card)
+- Test on VR headset first
+
+---
+
+## Lighting for 360°
+
+### Challenges
+
+**360° coverage means:**
+- Light sources visible from some angles
+- No "off-camera" lights
+- Shadows appear everywhere
+
+### Solutions
+
+**HDRI Environment**
+- Natural 360° lighting
+- Consistent from all angles
+- Realistic reflections
+
+**Distributed Lighting**
+- Many small area lights
+- Evenly distributed
+- Soft, ambient feel
+
+**Strategic Placement**
+- Place lights where they make sense (ceiling lamps, windows)
+- Make lights part of the scene
+- Use practicals (visible light sources)
+
+---
+
+## Step-by-Step Tutorial
+
+### Tutorial 1: Simple 360° Scene
+
+**Goal:** Create basic 360° VR video
+
+**Setup:**
+1. Create a room or environment
+2. Add objects around 360°
+3. Don't leave any direction empty!
+
+**Workflow:**
+1. **Step 1:** Create VR360 Scene
+   - Preset: YouTube 5K
+   - Quality: Preview
+   - Include Cyclorama: No (using custom room)
+
+2. **Position Camera:**
+   - Center of room
+   - Height: 1.7m (eye level)
+
+3. **Add Content:**
+   - Front: Main subject
+   - Sides: Supporting elements
+   - Back: Context, background
+   - Above: Ceiling details
+   - Below: Floor pattern
+
+4. **Test Frame:**
+   - Render single frame
+   - View as equirectangular
+   - Check all directions
+
+5. **Render:**
+   - Set timeline (24 frames for 1-second test)
+   - Step 2: Render sequence
+   - Step 3: Compositor
+   - Step 4: Final video
+
+---
+
+### Tutorial 2: Virtual Tour
+
+**Goal:** Walkthrough of space
+
+**Setup:**
+1. Model interior space (house, museum, etc.)
+2. Plan camera path through rooms
+3. Furnish all visible areas
+
+**Camera Path:**
+- Slow dolly through space
+- Pause at interesting points
+- Constant forward speed
+- No rotation (viewer looks around)
+
+**Composition:**
+- Lead viewer's eye with lighting
+- Add points of interest
+- Doorways create natural framing
+- Maintain consistent height
+
+---
+
+## Advanced Techniques
+
+### Text/Graphics in 360°
+
+**Placement:**
+- **Top/Bottom:** Always visible (viewer can't avoid)
+- **Center (0° horizontal):** Natural forward position
+- **Sides:** Requires head turn
+
+**Best Practices:**
+- Keep titles at top or bottom
+- Use large, readable fonts
+- High contrast
+- Brief text (viewers can't pause to read while looking around)
+
+---
+
+### Color Grading
+
+**In Compositor:**
+- Adjust before final render
+- Consistent across all angles
+- Subtle adjustments (VR amplifies effects)
+
+**Considerations:**
+- Test on actual VR headset
+- Avoid extreme saturation
+- Maintain natural colors
+
+---
+
+### Ambient Audio
+
+**Remember:** VR is immersive!
+- Add spatial audio if platform supports
+- Ambience important for presence
+- Diegetic sound (sources in scene)
+
+---
+
+## Rendering Tips
+
+### Optimization
+
+**Hardware:**
+- GPU rendering (CUDA/OptiX/Metal)
+- Multiple GPUs if available
+
+**Settings:**
+- Start with Preview quality
+- Enable denoising
+- Adaptive sampling
+- Light Paths: Reduce bounces for speed
+
+**Scene:**
+- Optimize geometry
+- Use level of detail (LOD)
+- Bake complex materials
+- Disable non-visible objects
+
+---
+
+### Quality Settings
+
+**Preview:**
+```
+Samples: 32
+Resolution: 50%
+Denoise: ON
+Fast iteration
+```
+
+**Production:**
+```
+Samples: 512+
+Resolution: 100%
+Denoise: ON
+Final delivery
+```
+
+---
+
+## Troubleshooting
+
+### Seams visible in render
+
+**Check:**
+- Node group settings
+- Equirectangular projection is correct
+- No manual camera modifications
+
+**Solution:** Recreate rig if needed.
+
+---
+
+### Empty/missing areas in 360°
+
+**Cause:** Not considering all directions
+
+**Solution:**
+- Review scene from multiple angles
+- Add content in all directions
+- Check ceiling and floor
+
+---
+
+### Video not recognized as 360° on YouTube
+
+**Cause:** Missing metadata
+
+**Solution:**
+- Use spatial-media tool
+- Inject 360° metadata
+- Verify 2:1 aspect ratio
+
+---
+
+### Motion sickness when viewing
+
+**Causes:**
+- Camera movement too fast
+- Camera rotation present
+- Sudden movements
+
+**Solutions:**
+- Minimize camera movement
+- Never rotate camera
+- Smooth, slow dollies only
+- Test on VR headset
+
+---
+
+## Best Practices Summary
+
+### Content
+
+- Design for 360° (all directions)
+- Static camera preferred
+- Viewer controls orientation
+- Add interest everywhere
+
+### Technical
+
+- Test with Preview first
+- Save before each step
+- Monitor disk space
+- Back up project
+
+### Publishing
+
+- Add spatial metadata
+- Test on VR device
+- YouTube 5K or higher
+- H.264 codec
+
+---
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Toggle sidebar | `N` |
+| Render animation | `Ctrl + F12` |
+| Cancel render | `Esc` |
+| Look through camera | `Numpad 0` |
+
+---
+
+## Next Steps
+
+**Explore Other Rigs:**
+- [VR180 Workflow](./vr180-workflow.mdx) - Stereoscopic VR
+- [Orbit Camera](./orbit-camera.mdx) - Turntables
+- [Isometric Camera](./isometric-camera.mdx) - Technical views
+
+**Learn More:**
+- [Getting Started](./getting-started.mdx) - Overview
+- [Troubleshooting](./troubleshooting.mdx) - Issues
+- [Installation](./installation.mdx) - Setup
+
+---
+
+## Resources
+
+- [YouTube 360 Guidelines](https://support.google.com/youtube/answer/6178631)
+- [Google Spatial Media](https://github.com/google/spatial-media)
+- Test with YouTube VR app or VR headset
+
+---
+
+**Happy 360° Creating!** 🌐🎥
+
+Part of the [Perpetual Exploration](https://perpetualexploration.com) project.

@@ -1,0 +1,775 @@
+---
+title: Orbit Camera Rig - Part 1: Overview & Data Model
+description: Data structures, property definitions, and function signatures
+status: Planning
+priority: High
+---
+
+# Orbit Camera Rig - Part 1: Overview & Data Model
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Blender 3.0+, Cycles/EEVEE
+
+---
+
+## Overview
+
+This is Part 1 of the Orbit Camera technical specification, covering:
+- Data model and property definitions
+- Function signatures and interfaces
+- File organization structure
+
+For implementation details, see:
+- [Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)
+- [Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)
+
+---
+
+## Data Model
+
+### Property Group Definition
+
+```python
+# File: addons/vr_production_toolkit/ui/properties.py
+
+import bpy
+import math
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    EnumProperty,
+    BoolProperty,
+    StringProperty,
+    PointerProperty,
+)
+from bpy.types import PropertyGroup
+
+
+class OrbitCameraSettings(PropertyGroup):
+    """Settings for orbit camera rig"""
+
+    # ==========================================
+    # Orbit Parameters
+    # ==========================================
+
+    orbit_radius: FloatProperty(
+        name="Orbit Radius",
+        description="Distance from target center",
+        default=3.0,
+        min=0.5,
+        max=50.0,
+        soft_min=1.0,
+        soft_max=20.0,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    camera_height: FloatProperty(
+        name="Camera Height",
+        description="Height above/below target center",
+        default=1.5,
+        min=-10.0,
+        max=10.0,
+        soft_min=-5.0,
+        soft_max=5.0,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    vertical_angle: FloatProperty(
+        name="Vertical Angle",
+        description="Tilt angle while orbiting (0° = level, +45° = above, -45° = below)",
+        default=0.0,
+        min=math.radians(-90.0),
+        max=math.radians(90.0),
+        step=100,
+        precision=1,
+        subtype='ANGLE',
+    )
+
+    start_angle: FloatProperty(
+        name="Start Angle",
+        description="Starting rotation angle for orbit",
+        default=0.0,
+        min=0.0,
+        max=math.radians(720.0),
+        step=100,
+        precision=1,
+        subtype='ANGLE',
+    )
+
+    end_angle: FloatProperty(
+        name="End Angle",
+        description="Ending rotation angle for orbit (>360° for multiple rotations)",
+        default=math.radians(360.0),
+        min=0.0,
+        max=math.radians(720.0),
+        step=100,
+        precision=1,
+        subtype='ANGLE',
+    )
+
+    # ==========================================
+    # Timing & Animation
+    # ==========================================
+
+    duration_preset: EnumProperty(
+        name="Duration Preset",
+        description="Preset duration for complete 360° rotation",
+        items=[
+            ('60', "60 Frames (2.5s @ 24fps)", "Quick orbit, 2.5 seconds"),
+            ('120', "120 Frames (5s @ 24fps)", "Standard orbit, 5 seconds"),
+            ('180', "180 Frames (7.5s @ 24fps)", "Moderate orbit, 7.5 seconds"),
+            ('240', "240 Frames (10s @ 24fps)", "Slow orbit, 10 seconds - Recommended"),
+            ('360', "360 Frames (15s @ 24fps)", "Very slow orbit, 15 seconds"),
+            ('CUSTOM', "Custom", "User-defined frame count"),
+        ],
+        default='240',
+    )
+
+    duration_frames: IntProperty(
+        name="Duration (Frames)",
+        description="Number of frames for complete orbit",
+        default=240,
+        min=10,
+        max=10000,
+        soft_min=60,
+        soft_max=600,
+    )
+
+    direction: EnumProperty(
+        name="Direction",
+        description="Rotation direction",
+        items=[
+            ('CCW', "Counter-Clockwise", "Rotate counter-clockwise (left to right from above)"),
+            ('CW', "Clockwise", "Rotate clockwise (right to left from above)"),
+        ],
+        default='CCW',
+    )
+
+    easing: EnumProperty(
+        name="Easing",
+        description="Animation easing type",
+        items=[
+            ('LINEAR', "Linear", "Constant speed throughout"),
+            ('EASE_IN', "Ease In", "Start slow, accelerate"),
+            ('EASE_OUT', "Ease Out", "Start fast, decelerate"),
+            ('EASE_IN_OUT', "Ease In-Out", "Start slow, accelerate, then decelerate"),
+        ],
+        default='LINEAR',
+    )
+
+    # ==========================================
+    # Camera Settings
+    # ==========================================
+
+    focal_length_preset: EnumProperty(
+        name="Focal Length",
+        description="Camera focal length preset",
+        items=[
+            ('24', "24mm", "Wide angle - dramatic, environmental"),
+            ('35', "35mm", "Standard product photography - minimal distortion"),
+            ('50', "50mm", "Portrait lens - natural perspective"),
+            ('85', "85mm", "Detail lens - flattering, compressed"),
+            ('105', "105mm", "Telephoto - close-up details"),
+            ('CUSTOM', "Custom", "User-defined focal length"),
+        ],
+        default='35',
+    )
+
+    focal_length: FloatProperty(
+        name="Focal Length (mm)",
+        description="Camera focal length in millimeters",
+        default=35.0,
+        min=10.0,
+        max=200.0,
+        soft_min=24.0,
+        soft_max=105.0,
+        precision=1,
+    )
+
+    use_dof: BoolProperty(
+        name="Depth of Field",
+        description="Enable depth of field (bokeh blur)",
+        default=False,
+    )
+
+    f_stop: FloatProperty(
+        name="F-Stop",
+        description="Aperture f-stop value (lower = more blur)",
+        default=2.8,
+        min=0.5,
+        max=22.0,
+        soft_min=1.4,
+        soft_max=16.0,
+        precision=1,
+    )
+
+    sensor_preset: EnumProperty(
+        name="Sensor Size",
+        description="Camera sensor size preset",
+        items=[
+            ('FULL_FRAME', "Full Frame", "36mm x 24mm (Canon 5D, Sony A7)"),
+            ('APS_C', "APS-C", "23.6mm x 15.6mm (Canon 80D, Nikon D7500)"),
+            ('MICRO_43', "Micro 4/3", "17.3mm x 13mm (Panasonic GH5)"),
+            ('CUSTOM', "Custom", "User-defined sensor size"),
+        ],
+        default='FULL_FRAME',
+    )
+
+    sensor_width: FloatProperty(
+        name="Sensor Width",
+        description="Camera sensor width in millimeters",
+        default=36.0,
+        min=10.0,
+        max=70.0,
+        precision=1,
+    )
+
+    # ==========================================
+    # Target & Focus
+    # ==========================================
+
+    target_object: PointerProperty(
+        name="Target Object",
+        description="Object to orbit around (empty if using center point)",
+        type=bpy.types.Object,
+    )
+
+    target_height_offset: FloatProperty(
+        name="Look-At Height Offset",
+        description="Vertical offset for look-at point (aim above/below object center)",
+        default=0.0,
+        min=-5.0,
+        max=5.0,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    follow_target: BoolProperty(
+        name="Follow Animated Target",
+        description="Camera tracks target if it moves during animation",
+        default=False,
+    )
+
+    # ==========================================
+    # Resolution & Render
+    # ==========================================
+
+    resolution_preset: EnumProperty(
+        name="Resolution Preset",
+        description="Output resolution preset",
+        items=[
+            ('4K', "4K (3840×2160)", "Ultra HD 16:9"),
+            ('2K', "2K (2048×1080)", "Cinema 2K"),
+            ('HD', "HD (1920×1080)", "Full HD 16:9"),
+            ('SQUARE_2K', "Square 2K (2048×2048)", "1:1 for product viewers"),
+            ('SQUARE_1K', "Square 1K (1024×1024)", "1:1 compact"),
+            ('CUSTOM', "Custom", "User-defined resolution"),
+        ],
+        default='4K',
+    )
+
+    resolution_x: IntProperty(
+        name="Resolution X",
+        description="Render width in pixels",
+        default=3840,
+        min=128,
+        max=16384,
+        subtype='PIXEL',
+    )
+
+    resolution_y: IntProperty(
+        name="Resolution Y",
+        description="Render height in pixels",
+        default=2160,
+        min=128,
+        max=16384,
+        subtype='PIXEL',
+    )
+
+    # ==========================================
+    # Scene Setup Options
+    # ==========================================
+
+    add_lighting: BoolProperty(
+        name="Add Lighting",
+        description="Add 3-point lighting setup",
+        default=True,
+    )
+
+    lighting_preset: EnumProperty(
+        name="Lighting Preset",
+        description="Lighting setup style",
+        items=[
+            ('PRODUCT', "Product", "Clean 3-point for product photography"),
+            ('DRAMATIC', "Dramatic", "High-contrast cinematic lighting"),
+            ('SOFT', "Soft", "Soft even lighting for character showcases"),
+            ('STUDIO', "Studio", "Professional studio setup"),
+        ],
+        default='PRODUCT',
+    )
+
+    add_reference_capsule: BoolProperty(
+        name="Add Reference Capsule",
+        description="Add person-scale capsule (1.8m height) for scale reference",
+        default=True,
+    )
+
+    add_floor: BoolProperty(
+        name="Add Floor Plane",
+        description="Add floor plane under target",
+        default=True,
+    )
+
+    auto_set_timeline: BoolProperty(
+        name="Auto-Set Timeline",
+        description="Automatically set timeline start/end to match orbit duration",
+        default=True,
+    )
+```
+
+---
+
+## Function Signatures
+
+### Orbit Rig Creation
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+def create_orbit_camera_rig(
+    context: bpy.types.Context,
+    target_object: bpy.types.Object = None,
+    target_location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    orbit_radius: float = 3.0,
+    camera_height: float = 1.5,
+    focal_length: float = 35.0,
+    name: str = "OrbitCamera",
+) -> tuple[bpy.types.Object, bpy.types.Object, bpy.types.Object]:
+    """
+    Create complete orbit camera rig with empty pivot and camera.
+
+    Args:
+        context: Blender context
+        target_object: Object to orbit around (None uses target_location)
+        target_location: World position to orbit around
+        orbit_radius: Distance from target center
+        camera_height: Camera elevation above target
+        focal_length: Camera focal length in mm
+        name: Base name for rig objects
+
+    Returns:
+        Tuple of (pivot_empty, camera_object, target_empty)
+
+    Creates:
+        - Pivot Empty at target location (animated rotation)
+        - Camera as child of pivot (offset by radius)
+        - Target Empty (for Track To constraint)
+        - Track To constraint on camera
+        - Collections: Orbit_Cameras, Orbit_Animation
+    """
+    pass
+
+
+def setup_track_to_constraint(
+    camera: bpy.types.Object,
+    target: bpy.types.Object,
+    height_offset: float = 0.0,
+) -> bpy.types.Constraint:
+    """
+    Setup Track To constraint for camera to always point at target.
+
+    Args:
+        camera: Camera object
+        target: Target object or empty
+        height_offset: Vertical offset for look-at point
+
+    Returns:
+        Track To constraint
+
+    Configures:
+        - Track Axis: -Z (camera forward)
+        - Up Axis: Y (camera up)
+        - Target Space: World Space
+        - Adds target empty if height_offset != 0
+    """
+    pass
+
+
+def animate_orbit(
+    pivot_empty: bpy.types.Object,
+    start_angle: float = 0.0,
+    end_angle: float = math.tau,  # 2π = 360°
+    duration_frames: int = 240,
+    direction: str = 'CCW',
+    easing: str = 'LINEAR',
+) -> None:
+    """
+    Animate pivot empty rotation for orbit motion.
+
+    Args:
+        pivot_empty: Empty object to rotate
+        start_angle: Starting rotation in radians
+        end_angle: Ending rotation in radians
+        duration_frames: Number of frames for animation
+        direction: 'CCW' or 'CW'
+        easing: 'LINEAR', 'EASE_IN', 'EASE_OUT', 'EASE_IN_OUT'
+
+    Creates:
+        - Keyframe at frame 1 with start_angle
+        - Keyframe at frame duration_frames with end_angle
+        - Sets interpolation mode based on easing
+    """
+    pass
+```
+
+### Camera Configuration
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+def configure_orbit_camera(
+    camera: bpy.types.Object,
+    focal_length: float = 35.0,
+    sensor_width: float = 36.0,
+    use_dof: bool = False,
+    f_stop: float = 2.8,
+    focus_distance: float = None,
+) -> None:
+    """
+    Configure camera properties for orbit rig.
+
+    Args:
+        camera: Camera object
+        focal_length: Focal length in mm
+        sensor_width: Sensor width in mm
+        use_dof: Enable depth of field
+        f_stop: Aperture f-stop value
+        focus_distance: Manual focus distance (None = auto from target)
+
+    Configures:
+        - Perspective camera type
+        - Focal length and sensor size
+        - Depth of field if enabled
+        - Focus distance (auto or manual)
+    """
+    pass
+
+
+def apply_camera_preset(
+    camera: bpy.types.Object,
+    preset: str = 'PRODUCT',
+) -> None:
+    """
+    Apply camera preset configuration.
+
+    Args:
+        camera: Camera object
+        preset: 'PRODUCT', 'CHARACTER', 'HERO', 'DETAIL', 'ARCHITECTURAL'
+
+    Presets:
+        PRODUCT: 35mm, f/2.8, DOF enabled
+        CHARACTER: 50mm, f/4.0, DOF enabled
+        HERO: 24mm, no DOF, wide dramatic
+        DETAIL: 85mm, f/1.8, shallow DOF
+        ARCHITECTURAL: 35mm, no DOF, everything sharp
+    """
+    pass
+```
+
+### Scene Setup
+
+```python
+# File: addons/vr_production_toolkit/scene_setup.py
+
+def add_orbit_lighting(
+    context: bpy.types.Context,
+    preset: str = 'PRODUCT',
+    target_location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> list[bpy.types.Object]:
+    """
+    Add lighting setup for orbit camera.
+
+    Args:
+        context: Blender context
+        preset: Lighting preset name
+        target_location: Center point for lighting
+
+    Returns:
+        List of light objects created
+
+    Presets:
+        PRODUCT: Clean 3-point, shadowless
+        DRAMATIC: High-contrast cinematic
+        SOFT: Even soft lighting
+        STUDIO: Professional 4-point studio
+
+    Creates:
+        - Lights in 'Orbit_Lighting' collection
+    """
+    pass
+
+
+def add_reference_capsule(
+    context: bpy.types.Context,
+    height: float = 1.8,
+    radius: float = 0.25,
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    """
+    Add person-scale reference capsule for scale reference.
+
+    Args:
+        context: Blender context
+        height: Total capsule height (1.8m = average person)
+        radius: Capsule radius (0.25m = shoulder width)
+        location: Base center location
+
+    Returns:
+        Capsule object
+
+    Creates:
+        - Capsule mesh (cylinder + 2 hemisphere caps)
+        - Semi-transparent material
+        - Added to 'Orbit_Scene' collection
+    """
+    pass
+
+
+def add_floor_plane(
+    context: bpy.types.Context,
+    size: float = 20.0,
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    material_type: str = 'GLOSSY',
+) -> bpy.types.Object:
+    """
+    Add floor plane under target object.
+
+    Args:
+        context: Blender context
+        size: Floor plane size
+        location: Floor center location
+        material_type: 'MATTE', 'GLOSSY', 'MIRROR', 'SHADOW_CATCHER'
+
+    Returns:
+        Floor plane object
+
+    Creates:
+        - Plane mesh
+        - Material based on type
+        - Added to 'Orbit_Scene' collection
+    """
+    pass
+```
+
+### Utility Functions
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+def calculate_orbit_position(
+    center: tuple[float, float, float],
+    radius: float,
+    angle: float,
+    height: float,
+) -> tuple[float, float, float]:
+    """
+    Calculate camera position on orbit circle.
+
+    Args:
+        center: Orbit center point (x, y, z)
+        radius: Distance from center
+        angle: Rotation angle in radians
+        height: Camera height above center
+
+    Returns:
+        Tuple of (x, y, z) position
+
+    Math:
+        x = center_x + radius * cos(angle)
+        y = center_y + radius * sin(angle)
+        z = center_z + height
+    """
+    pass
+
+
+def get_object_bounds_center(
+    obj: bpy.types.Object,
+) -> tuple[float, float, float]:
+    """
+    Get center point of object's bounding box.
+
+    Args:
+        obj: Object to measure
+
+    Returns:
+        Tuple of (x, y, z) world coordinates
+
+    Calculates center from bounding box min/max.
+    """
+    pass
+
+
+def set_timeline_range(
+    scene: bpy.types.Scene,
+    start_frame: int,
+    end_frame: int,
+) -> None:
+    """
+    Set timeline start and end frames.
+
+    Args:
+        scene: Scene to configure
+        start_frame: Timeline start
+        end_frame: Timeline end
+
+    Sets both frame_start/end and preview range.
+    """
+    pass
+```
+
+---
+
+## Constants & Enums
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+import math
+
+# Collection names
+COLLECTION_CAMERAS = "Orbit_Cameras"
+COLLECTION_LIGHTING = "Orbit_Lighting"
+COLLECTION_SCENE = "Orbit_Scene"
+COLLECTION_ANIMATION = "Orbit_Animation"
+
+# Duration presets (frames)
+DURATION_PRESETS = {
+    '60': 60,
+    '120': 120,
+    '180': 180,
+    '240': 240,
+    '360': 360,
+}
+
+# Focal length presets (mm)
+FOCAL_LENGTH_PRESETS = {
+    '24': 24.0,
+    '35': 35.0,
+    '50': 50.0,
+    '85': 85.0,
+    '105': 105.0,
+}
+
+# Sensor size presets (mm)
+SENSOR_PRESETS = {
+    'FULL_FRAME': 36.0,
+    'APS_C': 23.6,
+    'MICRO_43': 17.3,
+}
+
+# Resolution presets (width, height)
+RESOLUTION_PRESETS = {
+    '4K': (3840, 2160),
+    '2K': (2048, 1080),
+    'HD': (1920, 1080),
+    'SQUARE_2K': (2048, 2048),
+    'SQUARE_1K': (1024, 1024),
+}
+
+# Camera presets (focal_length, f_stop, use_dof)
+CAMERA_PRESETS = {
+    'PRODUCT': (35.0, 2.8, True),
+    'CHARACTER': (50.0, 4.0, True),
+    'HERO': (24.0, 8.0, False),
+    'DETAIL': (85.0, 1.8, True),
+    'ARCHITECTURAL': (35.0, 11.0, False),
+}
+
+# Default values
+DEFAULT_ORBIT_RADIUS = 3.0
+DEFAULT_CAMERA_HEIGHT = 1.5
+DEFAULT_DURATION_FRAMES = 240
+DEFAULT_FOCAL_LENGTH = 35.0
+```
+
+---
+
+## File Organization
+
+```
+addons/vr_production_toolkit/
+├── __init__.py                          # Registration, bl_info
+├── camera_rigs.py                       # Orbit rig creation
+│   ├── create_orbit_camera_rig()
+│   ├── setup_track_to_constraint()
+│   ├── animate_orbit()
+│   ├── configure_orbit_camera()
+│   ├── apply_camera_preset()
+│   ├── calculate_orbit_position()
+│   ├── get_object_bounds_center()
+│   └── set_timeline_range()
+├── scene_setup.py                       # Scene elements
+│   ├── add_orbit_lighting()
+│   └── add_floor_plane()
+├── render_utils.py                      # Render configuration
+│   ├── apply_orbit_render_settings()
+│   └── apply_resolution_preset()
+└── ui/
+    ├── properties.py                    # OrbitCameraSettings PropertyGroup
+    ├── operators.py                     # Blender operators (Part 3)
+    └── panels.py                        # UI panels (Part 3)
+```
+
+---
+
+## Dependencies
+
+### Blender Modules
+```python
+import bpy
+import math
+from mathutils import Vector, Euler, Matrix
+```
+
+### Standard Library
+```python
+import math
+from typing import Tuple, List, Optional
+```
+
+---
+
+## Registration
+
+```python
+# File: addons/vr_production_toolkit/__init__.py
+
+from bpy.utils import register_class, unregister_class
+from .ui.properties import OrbitCameraSettings
+
+def register():
+    register_class(OrbitCameraSettings)
+    bpy.types.Scene.orbit_camera_settings = bpy.props.PointerProperty(
+        type=OrbitCameraSettings
+    )
+
+def unregister():
+    del bpy.types.Scene.orbit_camera_settings
+    unregister_class(OrbitCameraSettings)
+```
+
+---
+
+## Next Steps
+
+Continue to:
+- **[Part 2: Core Implementation](./orbit-camera-tech-02-implementation.mdx)** - Function implementations and step-by-step guide
+- **[Part 3: Operators & UI](./orbit-camera-tech-03-operators.mdx)** - Blender operators and UI panels
+- **[Part 4: Reference & Testing](./orbit-camera-tech-04-reference.mdx)** - API reference, test cases, troubleshooting

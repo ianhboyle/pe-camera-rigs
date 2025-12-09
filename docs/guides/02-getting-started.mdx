@@ -1,0 +1,283 @@
+---
+title: "Getting Started with PE Camera Rigs"
+description: "Quick introduction to all four camera rigs in the PE Camera Rigs addon for Blender."
+---
+
+# Getting Started with PE Camera Rigs
+
+Welcome to **PE Camera Rigs**! This addon provides four professional camera systems for Blender 4.0+. This guide gives you a quick overview of each rig and helps you choose the right one for your project.
+
+**Already installed?** Great! Press `N` in the 3D Viewport and look for the **"PE Cams"** tab.
+
+**Need to install?** See the [Installation Guide](./installation.mdx).
+
+---
+
+## Quick Overview
+
+PE Camera Rigs includes **four specialized camera systems**, divided into two categories:
+
+### Interactive Rigs (Real-Time, Modifier-Driven)
+
+Perfect for quick setup and live feedback. Orbit controls in Modifier Properties, Isometric in Object Properties.
+
+| Rig | Best For | Setup Time |
+|-----|----------|------------|
+| **[Orbit Camera](./orbit-camera.mdx)** | Product turntables, character showcases | 30 seconds |
+| **[Isometric Camera](./isometric-camera.mdx)** | Game art, technical illustrations, architecture ⚡ Real-time updates! | 30 seconds |
+
+**How they work:** Click a button → Controller object appears → Adjust settings → Done!
+
+### Workflow Rigs (4-Step Production Pipeline)
+
+Professional VR content creation with crash-safe rendering.
+
+| Rig | Best For | Setup Time |
+|-----|----------|------------|
+| **[VR180](./vr180-workflow.mdx)** | Stereoscopic 180° VR for YouTube/Meta Quest | 5-10 minutes |
+| **[VR360](./vr360-workflow.mdx)** | Monoscopic 360° panoramic VR | 5-10 minutes |
+
+**How they work:** 4 numbered buttons guide you through: Scene Setup → Render → Composite → Export
+
+---
+
+## Finding the Addon Panel
+
+1. **Open the 3D Viewport**
+2. Press **`N`** to show the sidebar (if hidden)
+3. Click the **"PE Cams"** tab at the top
+4. You'll see panels for all four rigs
+
+![PE Cams Sidebar](/docs/images/pe-cams-sidebar.png)
+
+---
+
+## Which Rig Should I Use?
+
+### I want to create a turntable animation
+→ **[Orbit Camera](./orbit-camera.mdx)** - Smooth procedural orbiting with customizable easing
+
+### I need isometric/axonometric views
+→ **[Isometric Camera](./isometric-camera.mdx)** - 7 projection presets including true isometric
+
+### I'm making 3D VR content for YouTube
+→ **[VR180](./vr180-workflow.mdx)** if you want depth (stereoscopic)
+→ **[VR360](./vr360-workflow.mdx)** if you want full 360° coverage (monoscopic)
+
+### I need product showcase renders
+→ **[Orbit Camera](./orbit-camera.mdx)** for turntable animations
+→ **[Isometric Camera](./isometric-camera.mdx)** for fixed technical views
+
+### I'm creating game art sprites
+→ **[Isometric Camera](./isometric-camera.mdx)** with Game 2:1 or Game 4:3 presets
+
+---
+
+## Quick Start Tutorials
+
+### Orbit Camera (2 minutes)
+
+**Goal:** Create a spinning turntable animation
+
+1. In **PE Cams** sidebar, find **"Orbit Camera"** panel
+2. Select preset: **Product Turntable**
+3. Click **"Add Orbit Rig"**
+4. Select `Orbit_Controller` → Go to **Modifier Properties** tab
+5. Set **Orbit Radius** to your liking (distance from center)
+6. Press **Spacebar** to preview animation
+7. Press **Numpad 0** to look through camera
+
+**Done!** The camera automatically rotates 360° over your animation duration.
+
+**Next:** [Full Orbit Camera Guide](./orbit-camera.mdx)
+
+---
+
+### Isometric Camera (2 minutes)
+
+**Goal:** Create a true isometric view
+
+1. In **PE Cams** sidebar, find **"Isometric Camera"** panel
+2. Select preset: **True Isometric**
+3. Click **"Add Isometric Rig"**
+4. Select `Isometric_Controller` → Go to **Object Properties** tab
+5. Find **"Isometric Camera Settings"** panel
+6. Adjust **Ortho Scale** to zoom in/out (updates in real-time!)
+7. Move the controller object to frame your scene
+8. Press **Numpad 0** to look through camera
+
+**Done!** You have a perfect isometric projection camera with interactive controls.
+
+**Next:** [Full Isometric Camera Guide](./isometric-camera.mdx)
+
+---
+
+### VR180 Workflow (10 minutes)
+
+**Goal:** Create stereoscopic 180° VR video
+
+1. In **PE Cams** sidebar, find **"VR180 Professional Workflow"** panel
+2. Set **Preset** to **YouTube 5K**
+3. Click **`[1️⃣ Create VR180 Scene]`** → Cameras created
+4. Animate your scene
+5. Click **`[2️⃣ Render Left & Right Sequences]`** → Wait for render
+6. Click **`[3️⃣ Setup Compositor]`** → Node tree auto-created
+7. Click **`[4️⃣ Render YouTube Video]`** → Final video exported
+
+**Done!** You have a side-by-side VR180 video ready for metadata injection.
+
+**Next:** [Full VR180 Workflow Guide](./vr180-workflow.mdx)
+
+---
+
+### VR360 Workflow (10 minutes)
+
+**Goal:** Create monoscopic 360° VR video
+
+1. In **PE Cams** sidebar, find **"VR360 Mono Professional Workflow"** panel
+2. Set **Preset** to **YouTube 5K**
+3. Click **`[1️⃣ Create VR360 Scene]`** → Camera created
+4. Compose your 360° scene (remember: viewer can look everywhere!)
+5. Click **`[2️⃣ Render EXR Sequence]`** → Wait for render
+6. Click **`[3️⃣ Setup Compositor]`** → Node tree auto-created
+7. Click **`[4️⃣ Render YouTube Video]`** → Final video exported
+
+**Done!** You have an equirectangular 360° video.
+
+**Next:** [Full VR360 Workflow Guide](./vr360-workflow.mdx)
+
+---
+
+## Understanding the Two Rig Types
+
+### Interactive Rigs (Orbit & Isometric)
+
+**Technology:** Geometry Nodes
+**Control Method:** Modifier properties
+**Animation:** Automatic (driven by timeline)
+**Best For:** Fast iteration, real-time feedback
+
+**Key Features:**
+- All settings in one place (Modifier Properties tab)
+- Changes update instantly in viewport
+- Non-destructive - modify anytime
+- Can be keyframed for complex animations
+- No multi-step workflow needed
+
+**Example Use:**
+```
+Add Rig → Adjust Modifier → Render
+```
+
+---
+
+### Workflow Rigs (VR180 & VR360)
+
+**Technology:** Python operators + Compositor
+**Control Method:** Numbered button workflow
+**Animation:** Manual timeline control
+**Best For:** Production pipelines, crash-safe rendering
+
+**Key Features:**
+- 4-step guided workflow
+- Crash-safe EXR rendering (resume if interrupted)
+- Automatic compositor setup
+- Separate render/composite/export steps
+- Production-tested for large projects
+
+**Example Use:**
+```
+Step 1: Create Scene
+Step 2: Render Sequences (can pause/resume)
+Step 3: Setup Compositor (tweak color/effects)
+Step 4: Render Final Video
+```
+
+---
+
+## Common Questions
+
+### Can I use multiple rigs in one scene?
+**Yes!** All rigs can coexist. You can even combine them (e.g., orbit around an isometric view).
+
+### Do I need to know Geometry Nodes?
+**No.** The Orbit and Isometric rigs create the nodes for you. Just adjust the modifier sliders.
+
+### Can I edit the camera after creating it?
+**Yes.** Interactive rigs: adjust modifier properties anytime. VR rigs: re-run workflow steps as needed.
+
+### Where are my render outputs saved?
+**Default:** Relative to your .blend file (`//pe_renders/`). Change in addon preferences or workflow settings.
+
+### Can I keyframe the camera settings?
+**Yes** for Interactive Rigs - hover over any modifier value and press `I` to keyframe.
+**Manual** for VR Rigs - animate objects/lights normally, cameras are fixed to workflow.
+
+---
+
+## Tips for Success
+
+**For Interactive Rigs:**
+- Look through the camera (`Numpad 0`) before rendering
+- Select the controller object to access modifier settings
+- Use presets as starting points, then customize
+- Keyframe modifier values for complex animations
+
+**For VR Workflow Rigs:**
+- Complete all 4 steps in order - don't skip!
+- Step 2 can take hours - plan accordingly
+- Test with low samples/resolution first
+- Keep .blend file saved (relative paths use its location)
+
+**General:**
+- Press `N` if you don't see the sidebar
+- Check System Console (`Window` → `Toggle System Console`) for errors
+- Save often (especially before long renders)
+
+---
+
+## Keyboard Shortcuts to Remember
+
+| Action | Shortcut |
+|--------|----------|
+| Toggle Sidebar | `N` |
+| Look Through Camera | `Numpad 0` |
+| Play Animation | `Spacebar` |
+| Insert Keyframe | `I` (hover over value) |
+| Render Image | `F12` |
+| Render Animation | `Ctrl + F12` |
+
+---
+
+## Next Steps
+
+Choose your rig and dive into the detailed guide:
+
+**Interactive Rigs:**
+- 📹 [**Orbit Camera Guide**](./orbit-camera.mdx) - Turntable animations
+- 📐 [**Isometric Camera Guide**](./isometric-camera.mdx) - Technical views
+
+**VR Workflow Rigs:**
+- 🥽 [**VR180 Workflow Guide**](./vr180-workflow.mdx) - Stereoscopic VR
+- 🌐 [**VR360 Workflow Guide**](./vr360-workflow.mdx) - Panoramic VR
+
+**Other Resources:**
+- 🔧 [Troubleshooting Guide](./troubleshooting.mdx) - Common issues & solutions
+- 💿 [Installation Guide](./installation.mdx) - Setup & preferences
+- 📦 [Packaging Guide](./packaging.mdx) - For developers
+
+---
+
+## Getting Help
+
+**Found a bug?** [Report it on GitHub](https://github.com/ianworthington/blender-camera-rigs-addon/issues)
+
+**Need help?** Check the [Troubleshooting Guide](./troubleshooting.mdx) first, then search existing issues.
+
+**Want to contribute?** See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+
+---
+
+**Happy Rendering!** 🎥
+
+Part of the [Perpetual Exploration](https://perpetualexploration.com) project.

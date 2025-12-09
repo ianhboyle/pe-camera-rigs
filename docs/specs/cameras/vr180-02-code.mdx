@@ -1,0 +1,227 @@
+---
+title: "VR180 Fisheye Camera: Code Implementation"
+description: "Code specification for the Python-based VR180 rig and its 4-step professional workflow."
+status: Planning
+priority: High
+---
+
+# VR180 Fisheye Camera: Code & Node Implementation
+
+**See also:**
+- [← Part 1: Live Controller Workflow & UX](./vr180-01-userflow-and-ux.mdx)
+
+---
+
+## Overview
+
+This document outlines the Python implementation for the **VR180 4-step professional workflow**. The operators will create a traditional parented camera rig and handle each step of the rendering and compositing pipeline.
+
+**Key Implementation Features:**
+- **Python-based Rig:** A parent empty holds two camera objects, with their separation (IPD) controlled by a custom property on the parent.
+- **Helper Functions:** Logic for creating the rig, lighting, and scene elements will be organized into reusable Python functions.
+- **Dedicated UI Panel:** A comprehensive UI panel provides access to all settings and workflow steps.
+
+---
+
+## File Structure
+
+All VR180 Camera code will be placed in a dedicated module: `src/pe_camera_rigs/vr180/`.
+
+- `__init__.py`: Handles registration for this module.
+- `operators.py`: Contains `VR180_OT_CreateScene`, `VR180_OT_RenderSequences`, `VR180_OT_SetupCompositor`, `VR180_OT_RenderYouTube`.
+- `panels.py`: Contains the main VR180 workflow panel.
+- `properties.py`: Contains the PropertyGroups for scene and rig settings.
+- `rig.py`: Contains helper functions for creating and managing the camera rig itself.
+
+---
+
+## 1. Step 1: Create VR180 Scene Operator
+
+### File: `vr180/operators.py`
+
+The `VR180_OT_CreateScene` operator handles the creation of the camera rig, lighting, and other scene elements using pure Python helper functions.
+
+```python
+import bpy
+from bpy.types import Operator
+from bpy.props import EnumProperty
+
+from .rig import create_vr180_rig
+from ...utils.scene_setup import (
+    create_cyclorama,
+    create_lighting_preset,
+    add_reference_capsule,
+)
+from ...core_utils import detect_and_enable_gpu
+
+class VR180_OT_CreateScene(Operator):
+    """1️⃣ Create VR180 Scene - Sets up a VR180 rig and scene elements"""
+    bl_idname = "vr180.create_scene"
+    bl_label = "1️⃣ Create VR180 Scene"
+    # ... (bl_description, bl_options, and operator properties for lighting, etc.)
+
+    def execute(self, context):
+        settings = context.scene.vr180_settings # Scene-level settings
+
+        # 1. Create the parented VR180 camera rig
+        rig, left_cam, right_cam = create_vr180_rig(context)
+        
+        # 2. Assign rig-specific settings from the UI
+        #    The IPD and other rig properties are controlled by a PropertyGroup on the main rig empty.
+        rig.cgt_vr180_rig_settings.ipd = settings.initial_ipd 
+
+        # 3. Create lighting, cyclorama, and reference objects
+        if self.lighting_preset != 'NONE':
+            create_lighting_preset(context, preset=self.lighting_preset)
+        
+        if self.include_cyclorama:
+            create_cyclorama(context, size=self.cyclorama_size, color=self.cyclorama_color)
+
+        if self.include_reference:
+            add_reference_capsule(context)
+            
+        # 4. Auto-configure scene settings
+        context.scene.render.engine = 'CYCLES'
+        context.scene.render.resolution_x = 5760
+        context.scene.render.resolution_y = 2880
+        detect_and_enable_gpu(context)
+
+        # 5. Set active camera and select the main rig controller
+        context.scene.camera = left_cam # Default to left eye for viewport
+        bpy.ops.object.select_all(action='DESELECT')
+        rig.select_set(True)
+        context.view_layer.objects.active = rig
+
+        self.report({'INFO'}, "✅ VR180 Scene created! Adjust rig settings in the 'Object Properties' tab.")
+        return {'FINISHED'}
+```
+
+## 2. Rig Creation
+
+### File: `vr180/rig.py`
+
+This new file contains the helper function for creating the physical VR180 camera rig.
+
+```python
+import bpy
+import math
+
+def create_vr180_rig(context):
+    """
+    Creates a parented VR180 stereo camera rig.
+    
+    Returns:
+        (tuple): The main rig empty, the left camera object, and the right camera object.
+    """
+    # 1. Create the main parent object (an empty)
+    rig = bpy.data.objects.new(name="VR180_Rig", object_data=None)
+    rig.empty_display_type = 'CIRCLE'
+    rig.location = (0, 0, 1.6) # Default eye level
+    context.collection.objects.link(rig)
+
+    # 2. Create the left camera
+    left_cam_data = bpy.data.cameras.new("VR180_Camera_Left_Data")
+    left_cam_obj = bpy.data.objects.new("VR180_Camera_Left", left_cam_data)
+    
+    # 3. Create the right camera
+    right_cam_data = bpy.data.cameras.new("VR180_Camera_Right_Data")
+    right_cam_obj = bpy.data.objects.new("VR180_Camera_Right", right_cam_data)
+
+    # 4. Configure both cameras
+    for cam_obj in [left_cam_obj, right_cam_obj]:
+        cam_obj.parent = rig
+        cam_data = cam_obj.data
+        cam_data.type = 'PANO'
+        cam_data.cycles.panorama_type = 'FISHEYE_EQUISOLID'
+        cam_data.cycles.fisheye_fov = math.radians(190)
+        cam_data.lens = 5.2
+        context.collection.objects.link(cam_obj)
+
+    # 5. Add custom properties to the rig controller
+    # This assumes a 'PE_VR180RigSettings' PropertyGroup is defined in properties.py
+    # and registered to bpy.types.Object
+    
+    # 6. Use drivers to link the IPD property to the camera positions
+    ipd_path = 'cgt_vr180_rig_settings.ipd'
+
+    # Left camera X location driver
+    d_left = left_cam_obj.driver_add('location', 0).driver
+    v_left = d_left.variables.new()
+    v_left.name = 'ipd'
+    v_left.targets[0].id = rig
+    v_left.targets[0].data_path = ipd_path
+    d_left.expression = '-ipd / 2000.0' # Convert mm to meters and divide by 2
+
+    # Right camera X location driver
+    d_right = right_cam_obj.driver_add('location', 0).driver
+    v_right = d_right.variables.new()
+    v_right.name = 'ipd'
+    v_right.targets[0].id = rig
+    v_right.targets[0].data_path = ipd_path
+    d_right.expression = 'ipd / 2000.0' # Convert mm to meters and divide by 2
+
+    return rig, left_cam_obj, right_cam_obj
+```
+
+---
+
+## 3. UI Panels
+
+### File: `vr180/panels.py`
+
+The main VR180 workflow panel (`VR180_PT_Workflow`) will contain all settings, including the rig-specific ones like IPD, as there is no modifier panel in this workflow. A second panel will appear in the Object Properties window when the rig controller is selected, to hold the interactive settings.
+
+```python
+import bpy
+from bpy.types import Panel
+
+class VR180_PT_Workflow(Panel):
+    """The main 4-Step Workflow Panel in the 3D View Sidebar"""
+    bl_label = "VR180 Professional Workflow"
+    bl_idname = "VR180_PT_workflow"
+    # ... other panel properties ...
+
+    def draw(self, context):
+        # This panel will contain the 4 workflow buttons and global settings
+        # like resolution, quality, and output path, which are stored
+        # on the scene's cgt_vr180_settings PropertyGroup.
+        layout = self.layout
+        settings = context.scene.cgt_vr180_settings
+        
+        # ... UI for all 4 steps ...
+
+class VR180_PT_RigSettings(Panel):
+    """A panel in the Object Properties for the selected VR180 Rig"""
+    bl_label = "VR180 Rig Controller"
+    bl_idname = "VR180_PT_rig_settings"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "object"
+
+    @classmethod
+    def poll(cls, context):
+        # Only show this panel if the active object is a VR180 Rig
+        obj = context.object
+        return (obj is not None and "cgt_vr180_rig_settings" in obj)
+
+    def draw(self, context):
+        layout = self.layout
+        # Get the rig's custom properties
+        rig_settings = context.object.cgt_vr180_rig_settings
+
+        layout.prop(rig_settings, "ipd")
+        # ... other rig-specific controls can go here ...
+```
+
+---
+
+## Summary of Changes
+
+The VR180 implementation uses a pure Python approach to create a robust, parented camera rig and drive the 4-step rendering workflow.
+
+1.  **Parented Rig:** The rig consists of a main empty object with two camera objects parented to it.
+2.  **Driver-based IPD:** The Interpupillary Distance (IPD) is controlled by a custom property on the main rig empty, which drives the X-location of the left and right cameras.
+3.  **Python-based Workflow:** All steps, from scene creation to final render, are handled by Python operators.
+4.  **Dedicated UI:** All settings are accessible through custom UI panels, with rig-specific settings appearing in the Object Properties tab when the rig is selected.
+
+This architecture provides a stable and understandable workflow that is consistent with traditional Blender rigging practices.

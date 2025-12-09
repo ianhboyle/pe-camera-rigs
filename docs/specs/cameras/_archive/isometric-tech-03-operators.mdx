@@ -1,0 +1,1010 @@
+---
+title: Isometric Camera - Part 3: Operators & UI
+description: Blender operators and UI panel implementations
+status: Planning
+priority: Medium
+---
+
+# Isometric Camera - Part 3: Operators & UI
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/ui/`
+**Dependencies:** Part 1 (properties), Part 2 (core functions)
+
+---
+
+## Overview
+
+This is Part 3 of the Isometric Camera technical specification, covering:
+- Blender operator classes
+- UI panel layouts
+- User interaction code
+
+See also:
+- [Part 1: Overview & Data Model](./isometric-tech-01-overview.mdx)
+- [Part 2: Core Implementation](./isometric-tech-02-implementation.mdx)
+- [Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)
+
+---
+
+## Operators Implementation
+
+### File: `ui/operators.py`
+
+```python
+import bpy
+from bpy.types import Operator
+from bpy.props import EnumProperty, FloatProperty, BoolProperty
+
+# Import core functions from other modules
+from ..camera_rigs import (
+    create_isometric_camera,
+    set_isometric_angles,
+    update_orthographic_scale,
+    frame_selection,
+    reset_to_isometric,
+)
+from ..scene_setup import (
+    add_reference_grid,
+    add_axis_indicators,
+    add_scale_reference,
+    setup_isometric_lighting,
+)
+from ..render_utils import (
+    apply_isometric_render_settings,
+)
+
+
+class ISOMETRIC_OT_QuickCreate(Operator):
+    """Quick create isometric camera with preset (IsoCam style)"""
+    bl_idname = "isometric.quick_create"
+    bl_label = "Quick Create Isometric"
+    bl_description = "Create isometric camera with preset and auto-activate"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    preset: EnumProperty(
+        name="Preset",
+        description="Isometric preset to use",
+        items=[
+            ('GAME_ISOMETRIC', "Game Isometric", "2:1 ratio for stairs"),
+            ('GAME_4TO3', "Game 4:3", "Pixel art tiles"),
+            ('TRUE_ISOMETRIC', "True Isometric", "Mathematically correct"),
+            ('ISOMETRIC', "Classic Isometric", "Traditional CAD"),
+            ('DIMETRIC', "Dimetric", "30° tilt"),
+            ('MILITARY', "Military", "Top-down plan"),
+        ],
+        default='GAME_ISOMETRIC',
+    )
+
+    add_groundplane: BoolProperty(
+        name="Add Groundplane",
+        description="Add reference groundplane",
+        default=False,
+    )
+
+    def execute(self, context):
+        try:
+            # Create camera with preset
+            parent, camera = create_isometric_camera(
+                context=context,
+                name=f"{self.preset}_Camera",
+                projection_type=self.preset,
+                ortho_scale=14.0,  # IsoCam-style consistent scale
+                location=(0, 0, 0),
+            )
+
+            # Auto-activate camera (IsoCam style)
+            context.scene.camera = camera
+
+            # Switch viewport to camera view
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            space.region_3d.view_perspective = 'CAMERA'
+                            break
+
+            # Add groundplane if requested
+            if self.add_groundplane:
+                bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0, 0, 0))
+                plane = context.active_object
+                plane.scale = (5.0, 5.0, 5.0)
+                plane.name = "Groundplane"
+
+            # Select the camera parent
+            bpy.ops.object.select_all(action='DESELECT')
+            parent.select_set(True)
+            context.view_layer.objects.active = parent
+
+            self.report({'INFO'}, f"{self.preset} camera created and activated")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create camera: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_AddCamera(Operator):
+    """Add isometric camera with optional scene setup"""
+    bl_idname = "isometric.add_camera"
+    bl_label = "Add Isometric Camera"
+    bl_description = "Create isometric orthographic camera with parent empty"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    add_scene_elements: BoolProperty(
+        name="Add Scene Elements",
+        description="Add lighting and reference objects",
+        default=True,
+    )
+
+    def execute(self, context):
+        settings = context.scene.isometric_settings
+
+        try:
+            # Create camera
+            parent, camera = create_isometric_camera(
+                context=context,
+                name="IsometricCamera",
+                projection_type=settings.projection_type,
+                ortho_scale=settings.ortho_scale,
+                location=(0, 0, 0),
+            )
+
+            # Add scene elements if requested
+            if self.add_scene_elements:
+                # Add reference grid if enabled
+                if settings.show_grid:
+                    add_reference_grid(
+                        context=context,
+                        size=settings.grid_size,
+                        subdivisions=10,
+                    )
+
+                # Add axis indicators if enabled
+                if settings.show_axes:
+                    add_axis_indicators(
+                        context=context,
+                        length=5.0,
+                    )
+
+                # Add scale reference if enabled
+                if settings.show_scale_reference:
+                    add_scale_reference(
+                        context=context,
+                        floor_size=10.0,
+                        cube_size=5.0,
+                    )
+
+                # Add lighting if enabled
+                if settings.add_lighting:
+                    setup_isometric_lighting(
+                        context=context,
+                        preset=settings.lighting_preset,
+                    )
+
+            # Apply render settings
+            apply_isometric_render_settings(context.scene, settings)
+
+            # Set as active camera and switch viewport to camera view
+            context.scene.camera = camera
+
+            # Auto-activate camera view (IsoCam-style UX)
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            space.region_3d.view_perspective = 'CAMERA'
+                            break
+
+            # Select the parent empty
+            bpy.ops.object.select_all(action='DESELECT')
+            parent.select_set(True)
+            context.view_layer.objects.active = parent
+
+            self.report({'INFO'}, f"Isometric camera '{camera.name}' created and activated")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create camera: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_SetAngles(Operator):
+    """Set camera to specific isometric angles"""
+    bl_idname = "isometric.set_angles"
+    bl_label = "Set Isometric Angles"
+    bl_description = "Apply preset or custom angles to active camera"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object is not None and
+                context.active_object.type == 'CAMERA')
+
+    def execute(self, context):
+        settings = context.scene.isometric_settings
+        camera = context.active_object
+
+        try:
+            # Apply angles from settings
+            rotation_z, tilt_x, roll_y = set_isometric_angles(
+                camera=camera,
+                projection_type=settings.projection_type,
+                rotation_z=settings.rotation_z if settings.projection_type == 'CUSTOM' else None,
+                tilt_x=settings.tilt_x if settings.projection_type == 'CUSTOM' else None,
+                roll_y=settings.roll_y if settings.projection_type == 'CUSTOM' else None,
+            )
+
+            self.report({'INFO'}, f"Applied {settings.projection_type} angles")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to set angles: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_ResetAngles(Operator):
+    """Reset camera to standard isometric angles"""
+    bl_idname = "isometric.reset_angles"
+    bl_label = "Reset to Isometric"
+    bl_description = "Reset camera to standard isometric angles (45°, 35.264°)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object is not None and
+                context.active_object.type == 'CAMERA')
+
+    def execute(self, context):
+        camera = context.active_object
+
+        try:
+            reset_to_isometric(camera)
+            self.report({'INFO'}, "Reset to standard isometric angles")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to reset angles: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_FrameSelection(Operator):
+    """Auto-fit camera to frame selected objects"""
+    bl_idname = "isometric.frame_selection"
+    bl_label = "Frame Selection"
+    bl_description = "Adjust orthographic scale to frame selected objects"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    padding: FloatProperty(
+        name="Padding",
+        description="Padding around selection (1.0 = exact fit)",
+        default=1.2,
+        min=1.0,
+        max=3.0,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object is not None and
+                context.active_object.type == 'CAMERA' and
+                len(context.selected_objects) > 0)
+
+    def execute(self, context):
+        camera = context.active_object
+
+        try:
+            new_scale = frame_selection(
+                context=context,
+                camera=camera,
+                padding=self.padding,
+            )
+
+            # Update settings to reflect new scale
+            context.scene.isometric_settings.ortho_scale = new_scale
+
+            self.report({'INFO'}, f"Framed selection (scale: {new_scale:.2f})")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to frame selection: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_UpdateOrthoScale(Operator):
+    """Update camera orthographic scale"""
+    bl_idname = "isometric.update_ortho_scale"
+    bl_label = "Update Orthographic Scale"
+    bl_description = "Update camera zoom level"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object is not None and
+                context.active_object.type == 'CAMERA')
+
+    def execute(self, context):
+        settings = context.scene.isometric_settings
+        camera = context.active_object
+
+        try:
+            update_orthographic_scale(camera, settings.ortho_scale)
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to update scale: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_AddReferenceGrid(Operator):
+    """Add reference grid to scene"""
+    bl_idname = "isometric.add_reference_grid"
+    bl_label = "Add Reference Grid"
+    bl_description = "Add alignment reference grid plane"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        settings = context.scene.isometric_settings
+
+        try:
+            grid = add_reference_grid(
+                context=context,
+                size=settings.grid_size,
+                subdivisions=10,
+            )
+            self.report({'INFO'}, f"Added reference grid '{grid.name}'")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to add grid: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_AddAxisIndicators(Operator):
+    """Add X, Y, Z axis indicators"""
+    bl_idname = "isometric.add_axis_indicators"
+    bl_label = "Add Axis Indicators"
+    bl_description = "Add colored axis arrow indicators"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        try:
+            axes = add_axis_indicators(context=context, length=5.0)
+            self.report({'INFO'}, f"Added {len(axes)} axis indicators")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to add axis indicators: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_AddScaleReference(Operator):
+    """Add scale reference (grid floor + centered cube)"""
+    bl_idname = "isometric.add_scale_reference"
+    bl_label = "Add Scale Reference"
+    bl_description = "Add 10×10 grid floor with 5×5×5 cube for scale reference"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        try:
+            floor, cube = add_scale_reference(
+                context=context,
+                floor_size=10.0,
+                cube_size=5.0,
+            )
+            self.report({'INFO'}, f"Added reference floor and cube")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to add scale reference: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_SetupLighting(Operator):
+    """Setup isometric lighting"""
+    bl_idname = "isometric.setup_lighting"
+    bl_label = "Setup Lighting"
+    bl_description = "Add lighting setup for isometric rendering"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    preset: EnumProperty(
+        name="Preset",
+        items=[
+            ('TECHNICAL', "Technical", "Flat shadowless lighting"),
+            ('SOFT', "Soft", "Subtle directional lighting"),
+            ('STUDIO', "Studio", "Three-point lighting"),
+            ('GAME', "Game", "Top-left directional"),
+        ],
+        default='SOFT',
+    )
+
+    def execute(self, context):
+        try:
+            lights = setup_isometric_lighting(
+                context=context,
+                preset=self.preset,
+            )
+            self.report({'INFO'}, f"Added {len(lights)} lights ({self.preset} preset)")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to setup lighting: {str(e)}")
+            return {'CANCELLED'}
+
+    def invoke(self, context, event):
+        # Use preset from settings if available
+        settings = context.scene.isometric_settings
+        if hasattr(settings, 'lighting_preset'):
+            self.preset = settings.lighting_preset
+        return self.execute(context)
+
+
+class ISOMETRIC_OT_ApplyRenderSettings(Operator):
+    """Apply isometric render settings"""
+    bl_idname = "isometric.apply_render_settings"
+    bl_label = "Apply Render Settings"
+    bl_description = "Apply all isometric render settings to scene"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        settings = context.scene.isometric_settings
+
+        try:
+            apply_isometric_render_settings(context.scene, settings)
+            self.report({'INFO'}, "Applied render settings")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to apply settings: {str(e)}")
+            return {'CANCELLED'}
+
+
+class ISOMETRIC_OT_RenderImage(Operator):
+    """Render single isometric frame"""
+    bl_idname = "isometric.render_image"
+    bl_label = "Render Image"
+    bl_description = "Render single frame with current settings"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        settings = context.scene.isometric_settings
+
+        try:
+            # Apply render settings first
+            apply_isometric_render_settings(context.scene, settings)
+
+            # Trigger render
+            bpy.ops.render.render('INVOKE_DEFAULT')
+
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to start render: {str(e)}")
+            return {'CANCELLED'}
+
+
+# Operator registration list
+classes = (
+    ISOMETRIC_OT_QuickCreate,
+    ISOMETRIC_OT_AddCamera,
+    ISOMETRIC_OT_SetAngles,
+    ISOMETRIC_OT_ResetAngles,
+    ISOMETRIC_OT_FrameSelection,
+    ISOMETRIC_OT_UpdateOrthoScale,
+    ISOMETRIC_OT_AddReferenceGrid,
+    ISOMETRIC_OT_AddAxisIndicators,
+    ISOMETRIC_OT_AddScaleReference,
+    ISOMETRIC_OT_SetupLighting,
+    ISOMETRIC_OT_ApplyRenderSettings,
+    ISOMETRIC_OT_RenderImage,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+## UI Panels Implementation
+
+### File: `ui/panels.py`
+
+```python
+import bpy
+from bpy.types import Panel
+import math
+
+
+class ISOMETRIC_PT_QuickCreate(Panel):
+    """Quick create panel with preset buttons (IsoCam style)"""
+    bl_label = "Quick Create"
+    bl_idname = "ISOMETRIC_PT_quick_create"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_order = 2
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        # Game Development presets
+        box = layout.box()
+        box.label(text="Game Development", icon='CONSOLE')
+        col = box.column(align=True)
+        col.scale_y = 1.2
+
+        op = col.operator("isometric.quick_create", text="Game Isometric (2:1)", icon='VIEW_CAMERA')
+        op.preset = 'GAME_ISOMETRIC'
+        op.add_groundplane = False
+
+        op = col.operator("isometric.quick_create", text="Pixel Art (4:3)", icon='VIEW_CAMERA')
+        op.preset = 'GAME_4TO3'
+        op.add_groundplane = False
+
+        # Technical/CAD presets
+        box = layout.box()
+        box.label(text="Technical / CAD", icon='MODIFIER')
+        col = box.column(align=True)
+        col.scale_y = 1.2
+
+        op = col.operator("isometric.quick_create", text="True Isometric", icon='VIEW_CAMERA')
+        op.preset = 'TRUE_ISOMETRIC'
+        op.add_groundplane = False
+
+        op = col.operator("isometric.quick_create", text="Classic Isometric", icon='VIEW_CAMERA')
+        op.preset = 'ISOMETRIC'
+        op.add_groundplane = False
+
+        # Other projections
+        box = layout.box()
+        box.label(text="Other Projections", icon='CAMERA_DATA')
+        col = box.column(align=True)
+
+        op = col.operator("isometric.quick_create", text="Dimetric")
+        op.preset = 'DIMETRIC'
+        op.add_groundplane = False
+
+        op = col.operator("isometric.quick_create", text="Military (Top-Down)")
+        op.preset = 'MILITARY'
+        op.add_groundplane = False
+
+        # Info text
+        layout.separator()
+        box = layout.box()
+        col = box.column(align=False)
+        col.label(text="One-click camera creation", icon='INFO')
+        col.label(text="Auto-activates viewport")
+        col.label(text="For advanced options see below")
+
+
+class ISOMETRIC_PT_MainPanel(Panel):
+    """Main isometric camera panel"""
+    bl_label = "Isometric Camera"
+    bl_idname = "ISOMETRIC_PT_main_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_order = 3
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.isometric_settings
+
+        # Camera creation section
+        box = layout.box()
+        box.label(text="Camera Setup", icon='CAMERA_DATA')
+
+        col = box.column(align=True)
+        col.prop(settings, "projection_type")
+
+        # Show angle controls for CUSTOM type
+        if settings.projection_type == 'CUSTOM':
+            col.separator()
+            col.label(text="Custom Angles:")
+            col.prop(settings, "rotation_z", text="Rotation (Z)")
+            col.prop(settings, "tilt_x", text="Tilt (X)")
+            col.prop(settings, "roll_y", text="Roll (Y)")
+
+        col.separator()
+        col.prop(settings, "ortho_scale")
+
+        col.separator()
+        col.operator("isometric.add_camera", icon='ADD')
+
+        # Camera controls (only if camera is active)
+        if context.active_object and context.active_object.type == 'CAMERA':
+            box = layout.box()
+            box.label(text="Camera Controls", icon='CAMERA_DATA')
+
+            col = box.column(align=True)
+            col.operator("isometric.set_angles", icon='ORIENTATION_VIEW')
+            col.operator("isometric.reset_angles", icon='LOOP_BACK')
+
+            col.separator()
+            if len(context.selected_objects) > 0:
+                col.operator("isometric.frame_selection", icon='ZOOM_SELECTED')
+            else:
+                col.label(text="Select objects to frame", icon='INFO')
+
+
+class ISOMETRIC_PT_SceneSetup(Panel):
+    """Scene setup sub-panel"""
+    bl_label = "Scene Setup"
+    bl_idname = "ISOMETRIC_PT_scene_setup"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_parent_id = "ISOMETRIC_PT_main_panel"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.isometric_settings
+
+        # Visual aids
+        box = layout.box()
+        box.label(text="Visual Aids", icon='EMPTY_AXIS')
+
+        col = box.column(align=True)
+        col.prop(settings, "show_grid")
+        if settings.show_grid:
+            col.prop(settings, "grid_size")
+            col.operator("isometric.add_reference_grid", icon='MESH_GRID')
+
+        col.separator()
+        col.prop(settings, "show_axes")
+        if settings.show_axes:
+            col.operator("isometric.add_axis_indicators", icon='EMPTY_ARROWS')
+
+        col.separator()
+        col.prop(settings, "show_scale_reference")
+        if settings.show_scale_reference:
+            col.operator("isometric.add_scale_reference", icon='DRIVER_DISTANCE')
+
+        # Lighting
+        box = layout.box()
+        box.label(text="Lighting", icon='LIGHT')
+
+        col = box.column(align=True)
+        col.prop(settings, "add_lighting")
+        if settings.add_lighting:
+            col.prop(settings, "lighting_preset")
+            col.operator("isometric.setup_lighting", icon='LIGHT_SUN')
+
+
+class ISOMETRIC_PT_RenderSettings(Panel):
+    """Render settings sub-panel"""
+    bl_label = "Render Settings"
+    bl_idname = "ISOMETRIC_PT_render_settings"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_parent_id = "ISOMETRIC_PT_main_panel"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.isometric_settings
+
+        # Resolution
+        box = layout.box()
+        box.label(text="Resolution", icon='OUTPUT')
+
+        col = box.column(align=True)
+        col.prop(settings, "resolution_preset")
+
+        if settings.resolution_preset == 'CUSTOM':
+            col.separator()
+            row = col.row(align=True)
+            row.prop(settings, "resolution_x", text="X")
+            row.prop(settings, "resolution_y", text="Y")
+
+        # Quality
+        box = layout.box()
+        box.label(text="Quality", icon='SCENE')
+
+        col = box.column(align=True)
+        col.prop(settings, "render_quality")
+
+        if settings.render_quality == 'CUSTOM':
+            col.separator()
+            col.prop(settings, "render_samples")
+
+        # Render options
+        box = layout.box()
+        box.label(text="Options", icon='PREFERENCES')
+
+        col = box.column(align=True)
+        col.prop(settings, "use_transparent")
+        col.prop(settings, "use_freestyle")
+
+        if settings.use_freestyle:
+            col.prop(settings, "freestyle_thickness")
+
+        # Apply and render
+        layout.separator()
+        col = layout.column(align=True)
+        col.scale_y = 1.2
+        col.operator("isometric.apply_render_settings", icon='CHECKMARK')
+        col.operator("isometric.render_image", icon='RENDER_STILL')
+
+
+class ISOMETRIC_PT_InfoPanel(Panel):
+    """Information panel with tips"""
+    bl_label = "Info & Tips"
+    bl_idname = "ISOMETRIC_PT_info_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_parent_id = "ISOMETRIC_PT_main_panel"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.isometric_settings
+
+        # Current camera info
+        if context.active_object and context.active_object.type == 'CAMERA':
+            camera = context.active_object
+            box = layout.box()
+            box.label(text="Active Camera Info", icon='INFO')
+
+            col = box.column(align=False)
+
+            # Camera type
+            cam_type = "Orthographic" if camera.data.type == 'ORTHO' else "Perspective"
+            col.label(text=f"Type: {cam_type}")
+
+            # Orthographic scale
+            if camera.data.type == 'ORTHO':
+                col.label(text=f"Ortho Scale: {camera.data.ortho_scale:.2f}")
+
+            # Rotation angles (converted to degrees)
+            rot = camera.rotation_euler
+            col.separator()
+            col.label(text="Rotation:")
+            col.label(text=f"  Z: {math.degrees(rot.z):.2f}°")
+            col.label(text=f"  X: {math.degrees(rot.x):.2f}°")
+            col.label(text=f"  Y: {math.degrees(rot.y):.2f}°")
+
+        # Tips
+        box = layout.box()
+        box.label(text="Quick Tips", icon='HELP')
+
+        col = box.column(align=False)
+        col.label(text="• Use Frame Selection to auto-fit")
+        col.label(text="• Isometric: 45° / 35.264°")
+        col.label(text="• Dimetric: 45° / 30°")
+        col.label(text="• Disable denoising for sharp edges")
+        col.label(text="• 128-256 samples for isometric")
+
+
+# Panel registration list
+classes = (
+    ISOMETRIC_PT_QuickCreate,
+    ISOMETRIC_PT_MainPanel,
+    ISOMETRIC_PT_SceneSetup,
+    ISOMETRIC_PT_RenderSettings,
+    ISOMETRIC_PT_InfoPanel,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+```
+
+---
+
+## UI Layout Structure
+
+### Panel Hierarchy
+
+```
+VR Production Toolkit (Category)
+└── Isometric Camera (Main Panel)
+    ├── Camera Setup
+    │   ├── Projection Type dropdown
+    │   ├── Custom Angles (if CUSTOM selected)
+    │   ├── Orthographic Scale slider
+    │   └── "Add Camera" button
+    │
+    ├── Camera Controls (if camera active)
+    │   ├── "Set Angles" button
+    │   ├── "Reset to Isometric" button
+    │   └── "Frame Selection" button (if objects selected)
+    │
+    ├── Scene Setup (Sub-panel, collapsed by default)
+    │   ├── Visual Aids
+    │   │   ├── Show Grid checkbox + Add Grid button
+    │   │   ├── Show Axes checkbox + Add Axes button
+    │   │   └── Show Scale Reference checkbox + Add Reference button
+    │   └── Lighting
+    │       ├── Add Lighting checkbox
+    │       ├── Lighting Preset dropdown
+    │       └── "Setup Lighting" button
+    │
+    ├── Render Settings (Sub-panel, collapsed by default)
+    │   ├── Resolution
+    │   │   └── Resolution Preset dropdown (+ X/Y if custom)
+    │   ├── Quality
+    │   │   └── Quality Preset dropdown (+ samples if custom)
+    │   ├── Options
+    │   │   ├── Transparent Background checkbox
+    │   │   ├── Freestyle Lines checkbox
+    │   │   └── Line Thickness (if freestyle enabled)
+    │   ├── "Apply Render Settings" button
+    │   └── "Render Image" button
+    │
+    └── Info & Tips (Sub-panel, collapsed by default)
+        ├── Active Camera Info
+        │   ├── Type, Ortho Scale
+        │   └── Current rotation angles
+        └── Quick Tips
+            └── Usage tips and angle reference
+```
+
+---
+
+## Operator Usage Examples
+
+### Example 1: Add Camera with Scene Setup
+
+```python
+# User clicks "Add Isometric Camera" button
+# Equivalent to:
+bpy.ops.isometric.add_camera(add_scene_elements=True)
+```
+
+### Example 2: Frame Selected Objects
+
+```python
+# User selects objects, then clicks "Frame Selection"
+# Equivalent to:
+bpy.ops.isometric.frame_selection(padding=1.2)
+```
+
+### Example 3: Setup Custom Lighting
+
+```python
+# User clicks "Setup Lighting" with STUDIO preset selected
+# Equivalent to:
+bpy.ops.isometric.setup_lighting(preset='STUDIO')
+```
+
+### Example 4: Render with Settings
+
+```python
+# User clicks "Render Image"
+# Equivalent to:
+bpy.ops.isometric.render_image()
+# This applies settings, then invokes render
+```
+
+---
+
+## Property Update Callbacks
+
+### File: `ui/properties.py` (Update functions)
+
+```python
+def update_projection_type(self, context):
+    """Called when projection_type changes"""
+    if context.active_object and context.active_object.type == 'CAMERA':
+        # Auto-apply new projection type to active camera
+        try:
+            set_isometric_angles(
+                context.active_object,
+                self.projection_type,
+            )
+        except:
+            pass
+
+
+def update_ortho_scale(self, context):
+    """Called when ortho_scale changes"""
+    if context.active_object and context.active_object.type == 'CAMERA':
+        # Auto-update active camera's orthographic scale
+        try:
+            update_orthographic_scale(
+                context.active_object,
+                self.ortho_scale,
+            )
+        except:
+            pass
+
+
+# Add update callbacks to properties:
+projection_type: EnumProperty(
+    # ... existing properties ...
+    update=update_projection_type,
+)
+
+ortho_scale: FloatProperty(
+    # ... existing properties ...
+    update=update_ortho_scale,
+)
+```
+
+---
+
+## Keyboard Shortcuts (Optional)
+
+### File: `__init__.py` (Keymap registration)
+
+```python
+addon_keymaps = []
+
+def register_keymaps():
+    """Register keyboard shortcuts"""
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+
+    if kc:
+        km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
+
+        # Ctrl+Shift+I: Add Isometric Camera
+        kmi = km.keymap_items.new(
+            'isometric.add_camera',
+            type='I',
+            value='PRESS',
+            ctrl=True,
+            shift=True,
+        )
+        addon_keymaps.append((km, kmi))
+
+        # Shift+F: Frame Selection (if camera active)
+        kmi = km.keymap_items.new(
+            'isometric.frame_selection',
+            type='F',
+            value='PRESS',
+            shift=True,
+        )
+        addon_keymaps.append((km, kmi))
+
+
+def unregister_keymaps():
+    """Unregister keyboard shortcuts"""
+    for km, kmi in addon_keymaps:
+        km.keymap_items.remove(kmi)
+    addon_keymaps.clear()
+```
+
+---
+
+## Integration Notes
+
+### Panel Organization
+- All panels appear in the "VR Production" category in the 3D View sidebar (N-panel)
+- Main panel always visible
+- Sub-panels collapsed by default to reduce clutter
+- Logical grouping: Setup → Scene → Render → Info
+
+### Operator Feedback
+- Use `self.report({'INFO'}, message)` for successful operations
+- Use `self.report({'ERROR'}, message)` for failures
+- Include object names in success messages for clarity
+
+### Context Sensitivity
+- Camera control buttons only appear when camera is active
+- Frame selection only appears when objects are selected
+- Custom angle fields only appear for CUSTOM projection type
+
+---
+
+## Next Steps
+
+Continue to:
+- **[Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)** - Complete API reference, test cases, and troubleshooting

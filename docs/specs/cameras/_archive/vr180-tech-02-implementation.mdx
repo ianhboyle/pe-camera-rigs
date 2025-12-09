@@ -1,0 +1,712 @@
+---
+title: VR180 Fisheye Camera Rig - Part 2: Core Implementation
+description: Implementation steps for camera rig, compositor, metadata, and GPU optimization
+status: Planning
+priority: High
+---
+
+# VR180 Fisheye Camera Rig - Part 2: Core Implementation
+
+**Last Updated:** 2025-12-08 (Updated to match Part 3 UX)
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr180-tech-01-overview.mdx)
+- [Part 3: Operators & UI →](./vr180-tech-03-operators.mdx) - **Authoritative 4-step workflow**
+- [Part 4: Reference & Testing →](./vr180-tech-04-reference.mdx)
+- [Part 5: Python Implementation Code →](./vr180-tech-05-code.mdx)
+
+---
+
+## Implementation Steps
+
+### Step 1: Create Camera Rig
+
+**Checklist:**
+- [ ] Create parent empty at origin
+- [ ] Create left camera at (-ipd/2, 0, camera_height)
+- [ ] Create right camera at (ipd/2, 0, camera_height)
+- [ ] Parent cameras to rig empty
+- [ ] Set camera type to PANO
+- [ ] Set panorama type to FISHEYE_EQUISOLID
+- [ ] Set fisheye FOV
+- [ ] Set fisheye lens focal length
+- [ ] Configure clip start/end
+- [ ] Create/link to VR_Cameras collection
+- [ ] Set left camera as active
+
+**Implementation:**
+
+```python
+def create_vr180_fisheye_rig(
+    ipd=0.064,
+    fov=190.0,
+    focal_length=5.2,
+    camera_height=1.6,
+    resolution=(5760, 2880),
+    name="VR180_Rig",
+):
+    """Create VR180 stereoscopic fisheye camera rig."""
+
+    # 1. Create parent empty for rig
+    bpy.ops.object.empty_add(
+        type='SPHERE',
+        location=(0, 0, camera_height)
+    )
+    rig_parent = bpy.context.active_object
+    rig_parent.name = name
+    rig_parent.empty_display_size = 0.3
+
+    # 2. Calculate camera offset (half IPD)
+    camera_offset = ipd / 2.0
+
+    # 3. Create LEFT camera
+    bpy.ops.object.camera_add(
+        location=(-camera_offset, 0, camera_height)
+    )
+    left_camera = bpy.context.active_object
+    left_camera.name = f"{name}_Camera_Left"
+    left_camera.parent = rig_parent
+
+    # 4. Create RIGHT camera
+    bpy.ops.object.camera_add(
+        location=(camera_offset, 0, camera_height)
+    )
+    right_camera = bpy.context.active_object
+    right_camera.name = f"{name}_Camera_Right"
+    right_camera.parent = rig_parent
+
+    # 5. Configure both cameras
+    for camera_obj in [left_camera, right_camera]:
+        cam_data = camera_obj.data
+
+        # Set to panoramic fisheye
+        cam_data.type = 'PANO'
+        cam_data.cycles.panorama_type = 'FISHEYE_EQUISOLID'
+
+        # Set fisheye parameters
+        cam_data.cycles.fisheye_fov = math.radians(fov)
+        cam_data.cycles.fisheye_lens = focal_length
+
+        # Sensor settings
+        cam_data.sensor_width = 36.0  # Full frame equivalent
+        cam_data.sensor_fit = 'HORIZONTAL'
+
+        # Clip settings
+        cam_data.clip_start = 0.01
+        cam_data.clip_end = 1000.0
+
+    # 6. Organize in collection
+    vr_collection = get_or_create_vr_collection()
+    for obj in [rig_parent, left_camera, right_camera]:
+        link_to_collection(obj, vr_collection)
+
+    # 7. Set scene camera to left
+    bpy.context.scene.camera = left_camera
+
+    # 8. Set render resolution
+    bpy.context.scene.render.resolution_x = resolution[0]
+    bpy.context.scene.render.resolution_y = resolution[1]
+    bpy.context.scene.render.resolution_percentage = 100
+
+    # 9. Ensure Cycles is enabled
+    if bpy.context.scene.render.engine != 'CYCLES':
+        bpy.context.scene.render.engine = 'CYCLES'
+
+    print(f"Created VR180 Rig: {rig_parent.name}")
+    print(f"  Left: {left_camera.name}")
+    print(f"  Right: {right_camera.name}")
+    print(f"  IPD: {ipd * 1000:.1f}mm")
+    print(f"  FOV: {fov}°")
+
+    return rig_parent, left_camera, right_camera
+```
+
+---
+
+### Step 1.5: Camera Level Check & Helpers
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/camera_utils.py
+
+import bpy
+import math
+from mathutils import Vector
+
+
+def check_camera_level(camera, tolerance_degrees=2.0):
+    """Check if camera is level (prevents motion sickness)."""
+
+    # Get rotation in degrees
+    rot_x = math.degrees(camera.rotation_euler.x)
+    rot_y = math.degrees(camera.rotation_euler.y)
+
+    # Check if within tolerance
+    is_level = abs(rot_x) <= tolerance_degrees and abs(rot_y) <= tolerance_degrees
+
+    return is_level, rot_x, rot_y
+
+
+def calculate_subject_distance(camera, target):
+    """Calculate distance from camera to target object."""
+
+    cam_loc = camera.matrix_world.translation
+    target_loc = target.matrix_world.translation
+
+    distance = (cam_loc - target_loc).length
+
+    return distance
+
+
+def suggest_ipd_for_distance(distance_meters):
+    """
+    Suggest IPD based on subject distance (Canon user best practices).
+
+    Distance guidelines from real VR180 users:
+    - <3 feet (0.91m): Avoid (eye strain)
+    - 3-5 feet (0.91-1.52m): Close, intimate - 62-63mm IPD
+    - 5-10 feet (1.52-3.05m): Sweet spot - 64mm IPD (standard)
+    - 10-15 feet (3.05-4.57m): Environmental - 64-66mm IPD
+    - >15 feet (4.57m): Distant - 66-68mm IPD (minimal depth)
+    """
+
+    # Convert to feet for easier comparison with Canon guidelines
+    distance_feet = distance_meters * 3.28084
+
+    if distance_feet < 3.0:
+        # Too close - warn user
+        return 0.060, "too_close", "⚠️ Too close! Eye strain risk. Move subject to 3-15ft."
+
+    elif distance_feet < 5.0:
+        # Close-up (3-5 feet)
+        return 0.062, "close", "Close-up, intimate viewing (3-5ft)"
+
+    elif distance_feet < 10.0:
+        # Sweet spot (5-10 feet)
+        return 0.064, "optimal", "✅ Optimal distance! Natural, comfortable (5-10ft)"
+
+    elif distance_feet < 15.0:
+        # Environmental (10-15 feet)
+        return 0.065, "environmental", "Environmental, spatial (10-15ft)"
+
+    else:
+        # Distant (>15 feet)
+        return 0.067, "distant", "⚠️ Distant - 3D effect less noticeable (>15ft)"
+
+
+def apply_color_space(scene, color_space):
+    """Apply color space settings for matching real footage."""
+
+    view_settings = scene.view_settings
+    display_settings = scene.display_settings
+
+    if color_space == 'SRGB':
+        # Standard sRGB (YouTube default)
+        view_settings.view_transform = 'Standard'
+        view_settings.look = 'None'
+        display_settings.display_device = 'sRGB'
+
+    elif color_space == 'CANON_LOG3':
+        # Canon Log 3 (match Canon R5/R5C)
+        view_settings.view_transform = 'Filmic Log'
+        view_settings.look = 'None'
+        # Note: May need custom OCIO config for exact Canon Log 3
+        print("Canon Log 3: Use Filmic Log, adjust in post to match Canon exactly")
+
+    elif color_space == 'REC709':
+        # Rec.709 broadcast standard
+        view_settings.view_transform = 'Standard'
+        view_settings.look = 'None'
+        display_settings.display_device = 'Rec709'
+
+    elif color_space == 'ACES':
+        # ACES high-end workflow
+        view_settings.view_transform = 'ACES'
+        view_settings.look = 'None'
+
+    print(f"Color space set to: {color_space}")
+
+
+def auto_level_camera(camera):
+    """Automatically level camera (set X and Y rotation to 0)."""
+
+    # Keep Z rotation (panning), zero out X and Y
+    camera.rotation_euler.x = 0.0
+    camera.rotation_euler.y = 0.0
+
+    print(f"Camera leveled: {camera.name}")
+
+
+def draw_horizon_line(context):
+    """Draw horizon line in 3D viewport for leveling reference."""
+    # This would be a viewport overlay
+    # Implementation requires bgl/gpu module for drawing
+    # See Blender add-on docs for viewport overlays
+    pass
+```
+
+---
+
+### Step 2: Setup Compositor
+
+**Checklist:**
+- [ ] Create compositor scene
+- [ ] Set output resolution (SBS combined)
+- [ ] Enable use_nodes
+- [ ] Clear existing nodes
+- [ ] Create RenderLayers nodes for left/right
+- [ ] Create Denoise nodes (OptiX) for each eye
+- [ ] Create Translate nodes for positioning
+- [ ] Create AlphaOver node for combining
+- [ ] Create Composite output node
+- [ ] Create Viewer node for preview
+- [ ] Link all nodes
+- [ ] Configure FFmpeg output (H.265)
+
+**Implementation:**
+
+```python
+def setup_vr180_compositor(
+    left_scene,
+    right_scene,
+    output_resolution=(5760, 2880),
+    use_denoising=True,
+):
+    """Create compositor scene for VR180 SBS output."""
+
+    eye_width = output_resolution[0] // 2  # 2880 per eye
+
+    # 1. Create compositor scene
+    comp_scene = bpy.data.scenes.new("VR180_Compositor")
+    comp_scene.render.resolution_x = output_resolution[0]
+    comp_scene.render.resolution_y = output_resolution[1]
+    comp_scene.render.resolution_percentage = 100
+
+    # 2. Configure FFmpeg output (H.265)
+    comp_scene.render.image_settings.file_format = 'FFMPEG'
+    comp_scene.render.ffmpeg.format = 'MPEG4'
+    comp_scene.render.ffmpeg.codec = 'H265'
+    comp_scene.render.ffmpeg.constant_rate_factor = 'HIGH'
+    comp_scene.render.ffmpeg.ffmpeg_preset = 'GOOD'
+    comp_scene.render.ffmpeg.gopsize = 15
+    comp_scene.render.ffmpeg.video_bitrate = 100000  # 100Mbps
+
+    # Audio settings
+    comp_scene.render.ffmpeg.audio_codec = 'AAC'
+    comp_scene.render.ffmpeg.audio_bitrate = 384
+
+    # 3. Enable compositor
+    comp_scene.use_nodes = True
+    tree = comp_scene.node_tree
+
+    # 4. Clear default nodes
+    for node in tree.nodes:
+        tree.nodes.remove(node)
+
+    # 5. Create RenderLayers nodes
+    rl_left = tree.nodes.new('CompositorNodeRLayers')
+    rl_left.scene = left_scene
+    rl_left.location = (-900, 300)
+    rl_left.label = "Left Eye"
+
+    rl_right = tree.nodes.new('CompositorNodeRLayers')
+    rl_right.scene = right_scene
+    rl_right.location = (-900, -300)
+    rl_right.label = "Right Eye"
+
+    # 6. Create Denoise nodes (per eye)
+    if use_denoising:
+        dn_left = tree.nodes.new('CompositorNodeDenoise')
+        dn_left.location = (-600, 300)
+        dn_left.label = "Denoise Left"
+
+        dn_right = tree.nodes.new('CompositorNodeDenoise')
+        dn_right.location = (-600, -300)
+        dn_right.label = "Denoise Right"
+
+        # Connect render layers to denoise
+        tree.links.new(rl_left.outputs['Image'], dn_left.inputs['Image'])
+        tree.links.new(rl_right.outputs['Image'], dn_right.inputs['Image'])
+
+        # Use denoised output for next step
+        left_output = dn_left.outputs['Image']
+        right_output = dn_right.outputs['Image']
+    else:
+        # Use render layers directly
+        left_output = rl_left.outputs['Image']
+        right_output = rl_right.outputs['Image']
+
+    # 7. Create Translate nodes for SBS positioning
+    trans_left = tree.nodes.new('CompositorNodeTranslate')
+    trans_left.location = (-300, 300)
+    trans_left.label = "Position Left"
+    trans_left.inputs['X'].default_value = 0  # Left side, no offset
+    trans_left.inputs['Y'].default_value = 0
+
+    trans_right = tree.nodes.new('CompositorNodeTranslate')
+    trans_right.location = (-300, -300)
+    trans_right.label = "Position Right"
+    trans_right.inputs['X'].default_value = eye_width  # Offset to right side
+    trans_right.inputs['Y'].default_value = 0
+
+    # Connect to translate nodes
+    tree.links.new(left_output, trans_left.inputs['Image'])
+    tree.links.new(right_output, trans_right.inputs['Image'])
+
+    # 8. Create AlphaOver node to combine
+    alpha_over = tree.nodes.new('CompositorNodeAlphaOver')
+    alpha_over.location = (0, 0)
+    alpha_over.label = "Combine SBS"
+
+    # Connect translated images
+    tree.links.new(trans_left.outputs['Image'], alpha_over.inputs[1])
+    tree.links.new(trans_right.outputs['Image'], alpha_over.inputs[2])
+
+    # 9. Create Composite output
+    comp_out = tree.nodes.new('CompositorNodeComposite')
+    comp_out.location = (300, 100)
+    tree.links.new(alpha_over.outputs['Image'], comp_out.inputs['Image'])
+
+    # 10. Create Viewer for preview
+    viewer = tree.nodes.new('CompositorNodeViewer')
+    viewer.location = (300, -100)
+    tree.links.new(alpha_over.outputs['Image'], viewer.inputs['Image'])
+
+    print(f"Compositor setup complete: {comp_scene.name}")
+    print(f"  Output: {output_resolution[0]}×{output_resolution[1]} SBS")
+    print(f"  Denoising: {'Enabled' if use_denoising else 'Disabled'}")
+
+    return comp_scene
+```
+
+---
+
+### Step 3: Metadata Injection
+
+**Checklist:**
+- [ ] Import spatial-media library
+- [ ] Check input file exists
+- [ ] Create metadata object
+- [ ] Set stereo mode (left-right)
+- [ ] Set spherical flag
+- [ ] Inject metadata into file
+- [ ] Verify injection if requested
+- [ ] Handle errors gracefully
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/metadata_utils.py
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+
+def inject_vr180_metadata(
+    input_file,
+    output_file,
+    stereo_mode='left-right',
+    verify=True,
+):
+    """Inject VR180 spatial metadata using spatial-media library."""
+
+    # 1. Validate input
+    if not os.path.exists(input_file):
+        print(f"Error: Input file not found: {input_file}")
+        return False
+
+    # 2. Get spatial-media path (bundled with add-on)
+    addon_dir = Path(__file__).parent.parent
+    spatialmedia_dir = addon_dir / "lib" / "spatialmedia"
+
+    if not spatialmedia_dir.exists():
+        print("Error: spatial-media library not found (should be bundled)")
+        return False
+
+    # 3. Add to Python path
+    if str(spatialmedia_dir.parent) not in sys.path:
+        sys.path.insert(0, str(spatialmedia_dir.parent))
+
+    try:
+        # 4. Import spatial-media modules
+        from spatialmedia import metadata_utils
+
+        # 5. Create metadata
+        metadata = metadata_utils.Metadata()
+        metadata.video = metadata_utils.generate_spherical_xml(
+            stereo=stereo_mode,
+            crop_rectangle=None
+        )
+
+        # 6. Inject metadata
+        print(f"Injecting VR180 metadata: {stereo_mode}")
+        with open(input_file, 'rb') as in_fh:
+            with open(output_file, 'wb') as out_fh:
+                metadata_utils.inject_metadata(
+                    in_fh,
+                    out_fh,
+                    metadata,
+                    console=False
+                )
+
+        print(f"✓ Metadata injected: {output_file}")
+
+        # 7. Verify if requested
+        if verify:
+            verified = verify_vr180_metadata(output_file)
+            if verified:
+                print("✓ Metadata verified successfully")
+            else:
+                print("⚠ Warning: Could not verify metadata")
+                return False
+
+        return True
+
+    except Exception as e:
+        print(f"✗ Error injecting metadata: {e}")
+        return False
+
+
+def verify_vr180_metadata(video_file):
+    """Verify VR180 metadata is present in video file."""
+
+    try:
+        from spatialmedia import metadata_utils
+
+        with open(video_file, 'rb') as fh:
+            metadata = metadata_utils.parse_metadata(fh)
+
+            if metadata and metadata.video:
+                # Check for required fields
+                has_spherical = 'Spherical' in metadata.video
+                has_stereo = 'StereoMode' in metadata.video
+
+                return has_spherical and has_stereo
+            return False
+
+    except Exception as e:
+        print(f"Could not verify metadata: {e}")
+        return False
+```
+
+---
+
+### Step 4: GPU Optimization
+
+**Implementation:**
+
+```python
+# File: addons/vr_production_toolkit/scene_setup.py
+
+import bpy
+import math
+from mathutils import Vector
+from typing import List, Tuple
+
+
+def setup_vr_lighting(
+    context: bpy.types.Context,
+    preset: str = 'PRODUCT',
+    camera_location: Tuple[float, float, float] = (0.0, 0.0, 1.6),
+) -> List[bpy.types.Object]:
+    """
+    Add lighting setup for VR cameras (VR180/VR360).
+
+    IMPORTANT: Lights positioned FAR from camera (10m+) to avoid visibility in 360° view.
+
+    Presets:
+        PRODUCT: Clean 3-point for products
+        SOFT: Even diffused from multiple angles
+        STUDIO: Professional 4-point setup
+        DRAMATIC: High contrast cinematic
+        TECHNICAL: Flat shadowless overhead
+        OUTDOOR: Sun + sky simulation
+        BACKLIGHT: Rim/edge focus
+    """
+    from ..camera_rigs import ensure_collection
+
+    collection = ensure_collection("VR_Lighting")
+    lights = []
+    cam_loc = Vector(camera_location)
+
+    if preset == 'PRODUCT':
+        setup = [
+            ("Key", 'AREA', cam_loc + Vector((10, -10, 12)), 1600, 8),
+            ("Fill", 'AREA', cam_loc + Vector((-8, -8, 8)), 960, 12),
+            ("Rim", 'AREA', cam_loc + Vector((0, 12, 12)), 1120, 6),
+        ]
+        for name, light_type, pos, energy, size in setup:
+            bpy.ops.object.light_add(type=light_type, location=pos)
+            light = context.active_object
+            light.name = f"{name}_Product_VR"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    elif preset == 'SOFT':
+        positions = [
+            cam_loc + Vector((12, -12, 12)),
+            cam_loc + Vector((-12, -12, 12)),
+            cam_loc + Vector((0, 12, 10)),
+        ]
+        for i, pos in enumerate(positions):
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"Soft_{i+1}_VR"
+            light.data.energy = 900
+            light.data.size = 15
+            lights.append(light)
+
+    elif preset == 'STUDIO':
+        setup = [
+            ("Key", cam_loc + Vector((12, -12, 14)), 1800, 10),
+            ("Fill", cam_loc + Vector((-10, -10, 10)), 900, 15),
+            ("Rim", cam_loc + Vector((0, 15, 14)), 1100, 8),
+            ("Background", cam_loc + Vector((0, 0, -8)), 500, 20),
+        ]
+        for name, pos, energy, size in setup:
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"{name}_Studio_VR"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    elif preset == 'DRAMATIC':
+        bpy.ops.object.light_add(type='SPOT', location=cam_loc + Vector((15, -15, 18)))
+        key = context.active_object
+        key.name = "Key_Dramatic_VR"
+        key.data.energy = 5000
+        key.data.spot_size = math.radians(60)
+        lights.append(key)
+
+        bpy.ops.object.light_add(type='AREA', location=cam_loc + Vector((-10, -8, 8)))
+        fill = context.active_object
+        fill.name = "Fill_Dramatic_VR"
+        fill.data.energy = 400
+        fill.data.size = 20
+        lights.append(fill)
+
+    elif preset == 'TECHNICAL':
+        bpy.ops.object.light_add(type='AREA', location=cam_loc + Vector((0, 0, 25)))
+        light = context.active_object
+        light.name = "Overhead_Technical_VR"
+        light.data.energy = 2500
+        light.data.size = 30
+        lights.append(light)
+
+    elif preset == 'OUTDOOR':
+        bpy.ops.object.light_add(type='SUN', location=cam_loc + Vector((15, -15, 20)))
+        sun = context.active_object
+        sun.name = "Sun_Outdoor_VR"
+        sun.data.energy = 5.0
+        sun.data.angle = math.radians(0.545)
+        sun.rotation_euler = (math.radians(45), 0, math.radians(-45))
+        lights.append(sun)
+
+        bpy.ops.object.light_add(type='AREA', location=cam_loc + Vector((0, 0, 5)))
+        sky_fill = context.active_object
+        sky_fill.name = "Sky_Bounce_VR"
+        sky_fill.data.energy = 400
+        sky_fill.data.size = 25
+        sky_fill.data.color = (0.7, 0.85, 1.0)
+        lights.append(sky_fill)
+
+    elif preset == 'BACKLIGHT':
+        setup = [
+            ("Rim_Main", cam_loc + Vector((10, 12, 14)), 1500, 8),
+            ("Rim_Secondary", cam_loc + Vector((-10, 12, 14)), 1000, 8),
+            ("Fill_Minimal", cam_loc + Vector((0, -15, 6)), 250, 20),
+        ]
+        for name, pos, energy, size in setup:
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"{name}_Backlight_VR"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    for light in lights:
+        for coll in light.users_collection:
+            coll.objects.unlink(light)
+        collection.objects.link(light)
+
+    return lights
+```
+
+---
+
+## Step 5: GPU Optimization
+
+### File: `gpu_optimization.py`
+
+```python
+# File: addons/vr_production_toolkit/gpu_optimization.py
+
+import bpy
+
+
+def setup_gpu_rendering(scene, tile_size=512):
+    """Configure GPU rendering with OptiX/HIP detection."""
+
+    prefs = bpy.context.preferences
+    cycles_prefs = prefs.addons['cycles'].preferences
+
+    # 1. Try to set OptiX first (NVIDIA)
+    try:
+        cycles_prefs.compute_device_type = 'OPTIX'
+        print("GPU: OptiX enabled (NVIDIA)")
+    except:
+        # 2. Try HIP (AMD)
+        try:
+            cycles_prefs.compute_device_type = 'HIP'
+            print("GPU: HIP enabled (AMD)")
+        except:
+            # 3. Try CUDA (older NVIDIA)
+            try:
+                cycles_prefs.compute_device_type = 'CUDA'
+                print("GPU: CUDA enabled (NVIDIA)")
+            except:
+                # 4. Fallback to CPU
+                print("GPU: No compatible GPU found, using CPU")
+                scene.cycles.device = 'CPU'
+                return
+
+    # Enable all available devices
+    for device in cycles_prefs.devices:
+        device.use = True
+
+    # Scene settings
+    scene.cycles.device = 'GPU'
+    scene.cycles.tile_size = tile_size
+
+    # OptiX denoiser if available
+    try:
+        scene.cycles.denoiser = 'OPTIX'
+        print("Denoiser: OptiX")
+    except:
+        scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+        print("Denoiser: OpenImageDenoise")
+
+    # Performance optimizations
+    scene.cycles.use_persistent_data = True
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = 0.01
+
+    # Path guiding (Blender 5.0+)
+    try:
+        scene.cycles.use_path_guiding = True
+        print("Path Guiding: Enabled")
+    except:
+        pass
+
+    print(f"GPU rendering configured (tile size: {tile_size})")
+```
+
+---
+
+**Continue to:**
+- [Part 3: Operators & UI →](./vr180-tech-03-operators.mdx)

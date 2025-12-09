@@ -1,0 +1,76 @@
+---
+title: Blender Addon Development Best Practices (Blender 4.x+)
+description: A summary of best practices for developing robust, maintainable, and user-friendly Blender addons, cross-referenced with the current addon's adherence.
+status: Finalized
+priority: Low
+---
+
+# Blender Addon Development Best Practices (Blender 4.x+)
+
+This document synthesizes current best practices for Blender addon development (focusing on Blender 4.x and future versions), drawing from official Blender documentation, community discussions, and experienced developers. It also serves as a self-assessment for the `blender-camera-rigs-addon` regarding its adherence to these guidelines.
+
+---
+
+## 1. Code Structure and Organization
+
+*   **Modularity:** For medium to large addons, code should be separated into multiple files and organized into logical folders (e.g., `operators`, `panels`, `properties`, `utils`, `rigs`). Each file/folder should have a single, clear responsibility.
+    *   **Addon Status:** **Excellent.** The `pe_camera_rigs` addon is highly modular, with dedicated folders for rigs, UI, and utilities, and separate files for operators, panels, and properties within each rig type.
+*   **`__init__.py` Files:** Every folder intended as a Python package within the addon must contain an `__init__.py` file (even if empty).
+    *   **Addon Status:** **Excellent.** All module directories within `src/pe_camera_rigs` correctly contain `__init__.py` files.
+*   **Centralized Registration:** A main `__init__.py` should orchestrate the `register()` and `unregister()` calls for all sub-modules and classes. This promotes a clear loading/unloading sequence.
+    *   **Addon Status:** **Excellent.** The top-level `src/pe_camera_rigs/__init__.py` imports and registers sub-modules like `ui` and `rigs`, which in turn manage the registration of their own components.
+*   **Shared Functionality:** Abstract reusable logic into common utility modules (e.g., `utils`) to avoid code duplication.
+    *   **Addon Status:** **Excellent.** Helper functions for node group creation (`utils/nodes.py`), scene setup (`scene_setup.py`), and general Blender utilities (`utils/blender.py`) are correctly centralized.
+
+---
+
+## 2. Coding Style and Conventions
+
+*   **PEP8 Adherence:** Follow Python's official style guide (PEP8) for consistency in indentation (4 spaces), spacing, and general syntax.
+    *   **Addon Status:** **Good.** The code generally adheres to PEP8.
+*   **Blender-Specific Naming:**
+    *   `CamelCase` for class names (e.g., `MyOperatorClass`).
+    *   `snake_case` for module names (e.g., `my_module`).
+    *   Single quotes for `bl_idnames` and enums, double quotes for general strings.
+    *   **Addon Status:** **Excellent.** All classes, modules, and internal strings follow these conventions.
+*   **Descriptive Naming & Comments:** Use clear, descriptive names for variables, functions, and classes. Add comments to explain *why* complex code sections exist, rather than just *what* they do.
+    *   **Addon Status:** **Good.** Naming is descriptive. Comments are used to clarify complex logic, especially within Geometry Node creation functions and driver expressions.
+
+---
+
+## 3. User Interface (UI) Development
+
+*   **Layout Containers:** Utilize `row()`, `column()`, and `box()` to structure UI panels logically and leverage Blender's automatic layout management.
+    *   **Addon Status:** **Excellent.** Panels are structured using these containers for readability and intuitive user flow.
+*   **Workflow-Oriented Design:** UI should guide the user through a clear workflow, emphasizing actions.
+    *   **Addon Status:** **Excellent.** The VR180 and VR360 rigs feature a prominent 4-step workflow, with clear buttons and status updates. Interactive rigs (Isometric, Orbit) direct users to the Modifier Properties, aligning with Blender's native interaction patterns.
+*   **Keep UI Calm:** Avoid disruptive UI elements.
+    *   **Addon Status:** **Excellent.** The UI is designed to be unobtrusive and integrate seamlessly with Blender.
+
+---
+
+## 4. Modern Blender Features & API Usage
+
+*   **Geometry Nodes for Proceduralism:** Leverage Geometry Nodes for interactive, non-destructive procedural object generation and animation where appropriate.
+    *   **Addon Status:** **Excellent.** The Isometric and Orbit cameras now fully utilize Geometry Nodes for their core functionality, offering highly interactive and flexible rigs. This aligns with modern Blender development philosophy.
+*   **Python for Workflow Orchestration:** Use Python for defining operators, managing scene settings, and orchestrating complex multi-step workflows.
+    *   **Addon Status:** **Excellent.** The VR180 and VR360 cameras, as well as the overarching control of all rigs, use Python effectively for workflow management, object creation, and rendering tasks. This demonstrates a balanced approach to using Python and Geometry Nodes.
+*   **Event Handling & Drivers:** Use Blender's event system and drivers for real-time interactivity where GN is not the primary mechanism (e.g., IPD control in Python rigs).
+    *   **Addon Status:** **Excellent.** The VR180 rig effectively uses Python drivers for interactive IPD control on the rig empty.
+
+---
+
+## 5. Development Workflow & Robustness
+
+*   **Self-Contained & No External Installations:** Addons should typically avoid automatically installing external Python modules. If external dependencies exist, they should either be bundled correctly (e.g., as wheel files in a local namespace) or clearly listed as user prerequisites.
+    *   **Addon Status:** **Good.** The addon is self-contained. The documentation refers to `spatial-media` for VR metadata injection; while this tool is not bundled or installed by the addon, its status as a prerequisite for full functionality should be clearly communicated to the user.
+*   **Read-Only Installation Support:** Avoid writing directly to the addon's installation directory. Use `bpy.utils.extension_path_user()` for user-local data.
+    *   **Addon Status:** **Excellent.** The addon correctly outputs render files and sequences to a user-defined path, not its own directory.
+*   **Error Handling:** Implement robust `try-except` blocks and informative `self.report()` messages.
+    *   **Addon Status:** **Good.** Operators generally include `try-except` blocks and provide user feedback via `self.report()`.
+
+---
+
+## Conclusion
+
+The `blender-camera-rigs-addon`, in its current state, aligns very well with the established best practices for Blender addon development. The modular architecture, adherence to coding standards, effective UI design, and strategic integration of modern features like Geometry Nodes (for interactive rigs) and Python (for workflow management) demonstrate a robust and maintainable design. The addon is well-structured and uses appropriate techniques for its intended functionality.

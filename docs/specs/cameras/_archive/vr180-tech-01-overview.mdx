@@ -1,0 +1,691 @@
+---
+title: VR180 Fisheye Camera Rig - Part 1: Overview & Data Model
+description: Data structures, property definitions, and function signatures
+status: Planning
+priority: High
+---
+
+# VR180 Fisheye Camera Rig - Part 1: Overview & Data Model
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Blender 5.0+, Cycles, spatial-media (bundled)
+**Last Updated:** 2025-12-08 (Updated to match Part 3 UX)
+
+---
+
+## Overview
+
+This is Part 1 of the VR180 technical specification, covering:
+- Data model and property definitions
+- Function signatures and interfaces
+- File organization structure
+
+**Note:** This document has been updated to match the **4-step professional workflow** defined in [Part 3: Operators & UI](./vr180-tech-03-operators.mdx). Added lighting presets, cyclorama settings, and workflow state tracking.
+
+For implementation details, see:
+- [Part 2: Core Implementation](./vr180-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./vr180-tech-03-operators.mdx) - **Authoritative UX design**
+- [Part 4: Reference & Testing](./vr180-tech-04-reference.mdx)
+
+---
+
+## Data Model
+
+### Property Group Definition
+
+```python
+# File: addons/vr_production_toolkit/ui/properties.py
+
+import bpy
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    EnumProperty,
+    BoolProperty,
+    StringProperty,
+)
+from bpy.types import PropertyGroup
+
+
+class VR180Settings(PropertyGroup):
+    """Settings for VR180 fisheye camera rig"""
+
+    # ==========================================
+    # Camera Parameters
+    # ==========================================
+
+    ipd: FloatProperty(
+        name="IPD (Interpupillary Distance)",
+        description="Distance between left and right cameras (human eye separation)",
+        default=0.064,
+        min=0.050,
+        max=0.075,
+        soft_min=0.060,
+        soft_max=0.068,
+        unit='LENGTH',
+        precision=4,
+        subtype='DISTANCE',
+    )
+
+    fov: FloatProperty(
+        name="Field of View",
+        description="Fisheye field of view in degrees (180° = hemisphere)",
+        default=190.0,
+        min=120.0,
+        max=220.0,
+        soft_min=180.0,
+        soft_max=200.0,
+        precision=1,
+        subtype='ANGLE',
+    )
+
+    focal_length: FloatProperty(
+        name="Focal Length",
+        description="Fisheye lens focal length in mm (5.2mm = Canon RF Dual Fisheye)",
+        default=5.2,
+        min=1.0,
+        max=15.0,
+        soft_min=4.0,
+        soft_max=8.0,
+        precision=2,
+    )
+
+    camera_height: FloatProperty(
+        name="Camera Height",
+        description="Camera rig height (eye level)",
+        default=1.6,
+        min=0.1,
+        max=3.0,
+        soft_min=1.4,
+        soft_max=1.8,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    # ==========================================
+    # Resolution Presets
+    # ==========================================
+
+    resolution_preset: EnumProperty(
+        name="Resolution Preset",
+        description="YouTube VR180 resolution presets",
+        items=[
+            ('YOUTUBE_4K', "YouTube 4K", "3840×1920 (1920×1920 per eye), 60fps"),
+            ('YOUTUBE_5_7K', "YouTube 5.7K", "5760×2880 (2880×2880 per eye), 60fps - Recommended"),
+            ('YOUTUBE_8K', "YouTube 8K", "7680×3840 (3840×3840 per eye), 30fps"),
+            ('META_QUEST', "Meta Quest", "5120×2560 (2560×2560 per eye), 72fps"),
+            ('CUSTOM', "Custom", "User-defined resolution"),
+        ],
+        default='YOUTUBE_5_7K',
+    )
+
+    resolution_x: IntProperty(
+        name="Resolution X",
+        description="Combined side-by-side width",
+        default=5760,
+        min=1024,
+        max=16384,
+        subtype='PIXEL',
+    )
+
+    resolution_y: IntProperty(
+        name="Resolution Y",
+        description="Height (same for both eyes)",
+        default=2880,
+        min=512,
+        max=8192,
+        subtype='PIXEL',
+    )
+
+    fps: IntProperty(
+        name="Frame Rate",
+        description="Frames per second (60fps recommended for VR)",
+        default=60,
+        min=24,
+        max=120,
+        soft_min=30,
+        soft_max=90,
+    )
+
+    # ==========================================
+    # Render Quality Presets
+    # ==========================================
+
+    quality_preset: EnumProperty(
+        name="Quality Preset",
+        description="Render quality vs speed trade-off",
+        items=[
+            ('PREVIEW', "Preview", "128-256 samples, fast for testing"),
+            ('PRODUCTION', "Production", "512 samples, balanced quality/speed - Recommended"),
+            ('FINAL', "Final", "1024+ samples, highest quality"),
+            ('CUSTOM', "Custom", "Manual sample count"),
+        ],
+        default='PRODUCTION',
+    )
+
+    samples: IntProperty(
+        name="Render Samples",
+        description="Number of samples per pixel",
+        default=512,
+        min=1,
+        max=4096,
+        soft_min=128,
+        soft_max=2048,
+    )
+
+    use_denoising: BoolProperty(
+        name="Use Denoising",
+        description="Enable OptiX denoising (per-eye)",
+        default=True,
+    )
+
+    # ==========================================
+    # Output Settings
+    # ==========================================
+
+    output_path: StringProperty(
+        name="Output Path",
+        description="Path for rendered VR180 video",
+        default="//vr180_output",
+        subtype='FILE_PATH',
+    )
+
+    output_format: EnumProperty(
+        name="Output Format",
+        description="Video encoding format",
+        items=[
+            ('YOUTUBE', "YouTube (H.265)", "MP4 H.265/HEVC, 100Mbps - YouTube ready"),
+            ('MASTER', "Master (ProRes)", "MOV ProRes 422 HQ - Archive quality"),
+            ('CUSTOM', "Custom", "Manual FFmpeg settings"),
+        ],
+        default='YOUTUBE',
+    )
+
+    bitrate: IntProperty(
+        name="Bitrate (Mbps)",
+        description="Video bitrate in megabits per second",
+        default=100,
+        min=10,
+        max=500,
+        soft_min=50,
+        soft_max=200,
+    )
+
+    # ==========================================
+    # Metadata Injection
+    # ==========================================
+
+    auto_inject_metadata: BoolProperty(
+        name="Auto-Inject VR180 Metadata",
+        description="Automatically inject YouTube VR180 spatial metadata after rendering",
+        default=True,
+    )
+
+    verify_metadata: BoolProperty(
+        name="Verify Metadata",
+        description="Verify that metadata was successfully injected",
+        default=True,
+    )
+
+    stereo_mode: EnumProperty(
+        name="Stereo Mode",
+        description="Stereoscopic layout mode",
+        items=[
+            ('left-right', "Side-by-Side (VR180)", "Left and right eyes side by side"),
+            ('top-bottom', "Top-Bottom (VR360)", "Left and right eyes stacked vertically"),
+        ],
+        default='left-right',
+    )
+
+    # ==========================================
+    # Scene Setup (Step 1)
+    # ==========================================
+
+    lighting_preset: EnumProperty(
+        name="Lighting Preset",
+        description="Pre-configured lighting setup",
+        items=[
+            ('NONE', "None", "No lights added - manual setup"),
+            ('3POINT_STUDIO', "3-Point (Studio)", "Key, fill, rim for interviews/products - Default"),
+            ('3POINT_OUTDOOR', "3-Point (Outdoor)", "Sun, sky, rim for outdoor scenes"),
+            ('STUDIO_MULTI', "Studio Multi-Light", "5-light setup for high-end studio"),
+            ('OUTDOOR_NATURAL', "Outdoor Natural", "Sun + sky for realistic outdoor"),
+            ('OUTDOOR_OVERCAST', "Outdoor Overcast", "Soft diffused light for cloudy day"),
+            ('STAGE_PERFORMANCE', "Stage/Performance", "Colored spots for dramatic stage lighting"),
+            ('CUSTOM', "Custom Preset...", "Load user-saved lighting setup"),
+        ],
+        default='3POINT_STUDIO',
+    )
+
+    cyclorama_enabled: BoolProperty(
+        name="Add Cyclorama Stage",
+        description="Add cyclorama background (curved floor + wall)",
+        default=True,
+    )
+
+    cyclorama_size: EnumProperty(
+        name="Cyclorama Size",
+        description="Size of cyclorama stage",
+        items=[
+            ('SMALL', "10m × 10m (Small/Intimate)", "Good for close-up shots, interviews"),
+            ('MEDIUM', "20m × 20m (Medium)", "Good for general use - Default"),
+            ('LARGE', "30m × 30m (Large/Spacious)", "Good for wide shots, vehicles, dance"),
+        ],
+        default='MEDIUM',
+    )
+
+    cyclorama_color: EnumProperty(
+        name="Cyclorama Color",
+        description="Background color/mood",
+        items=[
+            ('WHITE', "White (High-key, Bright)", "Clean, minimal, bright product photography"),
+            ('GRAY', "Neutral Gray (Balanced)", "Professional, versatile - Default"),
+            ('BLACK', "Black (Low-key, Dramatic)", "Dramatic, moody, high-contrast"),
+        ],
+        default='GRAY',
+    )
+
+    add_reference: BoolProperty(
+        name="Add Person-Scale Reference",
+        description="Add 1.8m capsule for scale reference",
+        default=True,
+    )
+
+    # ==========================================
+    # Workflow State Tracking (4-Step Progress)
+    # ==========================================
+
+    workflow_step: IntProperty(
+        name="Current Workflow Step",
+        description="Track which step of the 4-step workflow is complete",
+        default=0,  # 0 = not started, 1 = scene created, 2 = sequences rendered, 3 = compositor setup, 4 = final video
+        min=0,
+        max=4,
+    )
+
+    sequences_rendered: BoolProperty(
+        name="Sequences Rendered",
+        description="Flag indicating EXR sequences have been rendered",
+        default=False,
+    )
+
+    compositor_setup: BoolProperty(
+        name="Compositor Setup Complete",
+        description="Flag indicating compositor has been configured",
+        default=False,
+    )
+
+    # ==========================================
+    # Advanced Settings
+    # ==========================================
+
+    use_gpu: BoolProperty(
+        name="Use GPU Rendering",
+        description="Use GPU acceleration (OptiX/HIP)",
+        default=True,
+    )
+
+    use_path_guiding: BoolProperty(
+        name="Use Path Guiding",
+        description="Enable path guiding (Blender 5.0+)",
+        default=True,
+    )
+
+    adaptive_threshold: FloatProperty(
+        name="Adaptive Sampling Threshold",
+        description="Adaptive sampling noise threshold",
+        default=0.01,
+        min=0.0,
+        max=1.0,
+        precision=3,
+    )
+
+    # ==========================================
+    # Color Space & Workflow
+    # ==========================================
+
+    color_space: EnumProperty(
+        name="Color Space",
+        description="Color space for rendering (for matching real footage workflows)",
+        items=[
+            ('SRGB', "sRGB", "Standard sRGB (Rec.709 primaries, 2.2 gamma) - YouTube default"),
+            ('CANON_LOG3', "Canon Log 3", "Canon Log 3 - Match Canon R5/R5C footage"),
+            ('REC709', "Rec.709", "Rec.709 - Broadcast video standard"),
+            ('ACES', "ACES", "ACES - High-end film/VFX workflow"),
+        ],
+        default='SRGB',
+    )
+
+    # ==========================================
+    # Camera Level Check
+    # ==========================================
+
+    check_camera_level: BoolProperty(
+        name="Check Camera Level",
+        description="Warn if camera is tilted (prevents motion sickness)",
+        default=True,
+    )
+
+    level_tolerance: FloatProperty(
+        name="Level Tolerance",
+        description="Maximum tilt angle before warning (degrees)",
+        default=2.0,
+        min=0.5,
+        max=10.0,
+        soft_max=5.0,
+        precision=1,
+        subtype='ANGLE',
+    )
+
+    show_horizon_line: BoolProperty(
+        name="Show Horizon Line",
+        description="Display horizon line in viewport for leveling reference",
+        default=True,
+    )
+
+    auto_level_on_create: BoolProperty(
+        name="Auto-Level on Create",
+        description="Automatically level camera when creating rig",
+        default=True,
+    )
+
+    # ==========================================
+    # Subject Distance Advisor
+    # ==========================================
+
+    show_distance_advisor: BoolProperty(
+        name="Show Distance Advisor",
+        description="Display subject distance and IPD recommendations",
+        default=False,
+    )
+
+    target_object: StringProperty(
+        name="Target Object",
+        description="Object to measure distance from camera (for IPD advisor)",
+        default="",
+    )
+
+    suggest_ipd_from_distance: BoolProperty(
+        name="Auto-Suggest IPD",
+        description="Automatically suggest IPD based on subject distance",
+        default=False,
+    )
+```
+
+---
+
+## Function Signatures
+
+### Core Functions
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+import bpy
+import math
+from typing import Tuple, Optional
+from mathutils import Vector
+
+
+def create_vr180_fisheye_rig(
+    ipd: float = 0.064,
+    fov: float = 190.0,
+    focal_length: float = 5.2,
+    camera_height: float = 1.6,
+    resolution: Tuple[int, int] = (5760, 2880),
+    name: str = "VR180_Rig",
+) -> Tuple[bpy.types.Object, bpy.types.Object, bpy.types.Object]:
+    """
+    Create a VR180 stereoscopic fisheye camera rig.
+
+    Args:
+        ipd: Interpupillary distance in meters (default: 0.064 = 64mm)
+        fov: Field of view in degrees (default: 190.0°)
+        focal_length: Fisheye lens focal length in mm (default: 5.2mm)
+        camera_height: Rig height from ground in meters (default: 1.6m)
+        resolution: (width, height) combined SBS resolution (default: 5760×2880)
+        name: Name for the rig parent object (default: "VR180_Rig")
+
+    Returns:
+        Tuple of (rig_parent, left_camera, right_camera) objects
+
+    Example:
+        >>> rig, cam_l, cam_r = create_vr180_fisheye_rig()
+        >>> rig.location = (0, 0, 1.6)  # Position at eye level
+    """
+    pass  # Implementation in Part 2
+
+
+def setup_vr180_compositor(
+    left_scene: bpy.types.Scene,
+    right_scene: bpy.types.Scene,
+    output_resolution: Tuple[int, int] = (5760, 2880),
+    use_denoising: bool = True,
+) -> bpy.types.Scene:
+    """
+    Create compositor scene for VR180 side-by-side output.
+
+    Args:
+        left_scene: Scene containing left eye camera
+        right_scene: Scene containing right eye camera
+        output_resolution: (width, height) for combined SBS output
+        use_denoising: Enable OptiX denoising per eye
+
+    Returns:
+        Compositor scene configured for VR180 SBS output
+
+    Example:
+        >>> comp = setup_vr180_compositor(left_scene, right_scene)
+        >>> bpy.context.window.scene = comp
+        >>> bpy.ops.render.render(animation=True)
+    """
+    pass  # Implementation in Part 2
+
+
+def inject_vr180_metadata(
+    input_file: str,
+    output_file: str,
+    stereo_mode: str = 'left-right',
+    verify: bool = True,
+) -> bool:
+    """
+    Inject VR180 spatial metadata into rendered video.
+
+    Uses bundled spatial-media library to add YouTube VR180 metadata.
+
+    Args:
+        input_file: Path to input video file (MP4/MOV)
+        output_file: Path to output file with metadata
+        stereo_mode: 'left-right' or 'top-bottom'
+        verify: Verify metadata was injected successfully
+
+    Returns:
+        True if successful, False otherwise
+
+    Example:
+        >>> success = inject_vr180_metadata(
+        ...     "render_temp.mp4",
+        ...     "final_youtube.mp4",
+        ...     stereo_mode='left-right'
+        ... )
+    """
+    pass  # Implementation in Part 2
+
+
+def setup_gpu_rendering(
+    scene: bpy.types.Scene,
+    tile_size: int = 512,
+) -> None:
+    """
+    Configure GPU rendering with OptiX/HIP detection.
+
+    Args:
+        scene: Scene to configure
+        tile_size: Render tile size (default: 512 for GPU)
+
+    Example:
+        >>> setup_gpu_rendering(bpy.context.scene)
+    """
+    pass  # Implementation in Part 2
+
+
+def apply_resolution_preset(
+    preset: str,
+    settings: 'VR180Settings',
+) -> Tuple[int, int, int]:
+    """
+    Apply resolution preset and return (width, height, fps).
+
+    Args:
+        preset: Preset name ('YOUTUBE_4K', 'YOUTUBE_5_7K', 'YOUTUBE_8K', 'META_QUEST')
+        settings: VR180Settings property group
+
+    Returns:
+        Tuple of (width, height, fps)
+
+    Example:
+        >>> w, h, fps = apply_resolution_preset('YOUTUBE_5_7K', settings)
+        >>> # w=5760, h=2880, fps=60
+    """
+    pass  # Implementation in Part 2
+
+
+def check_camera_level(
+    camera: bpy.types.Object,
+    tolerance_degrees: float = 2.0,
+) -> Tuple[bool, float, float]:
+    """
+    Check if VR180 camera rig is level (critical for motion sickness prevention).
+
+    Args:
+        camera: Camera object or rig parent to check
+        tolerance_degrees: Maximum acceptable tilt (default: 2°)
+
+    Returns:
+        Tuple of (is_level, tilt_x_degrees, tilt_y_degrees)
+
+    Example:
+        >>> is_level, tilt_x, tilt_y = check_camera_level(rig)
+        >>> if not is_level:
+        ...     print(f"⚠️ Camera tilted! X: {tilt_x:.1f}°, Y: {tilt_y:.1f}°")
+    """
+    pass  # Implementation in Part 2
+
+
+def calculate_subject_distance(
+    camera: bpy.types.Object,
+    target: bpy.types.Object,
+) -> float:
+    """
+    Calculate distance from camera to subject object.
+
+    Args:
+        camera: VR180 camera rig or camera object
+        target: Target object to measure distance to
+
+    Returns:
+        Distance in meters
+
+    Example:
+        >>> distance = calculate_subject_distance(rig, subject_obj)
+        >>> print(f"Subject is {distance:.2f}m from camera")
+    """
+    pass  # Implementation in Part 2
+
+
+def suggest_ipd_for_distance(
+    distance_meters: float,
+) -> Tuple[float, str, str]:
+    """
+    Suggest optimal IPD based on subject distance (from Canon user best practices).
+
+    Args:
+        distance_meters: Distance to subject in meters
+
+    Returns:
+        Tuple of (recommended_ipd, comfort_zone, description)
+
+    Example:
+        >>> ipd, zone, desc = suggest_ipd_for_distance(2.5)
+        >>> # ipd=0.062, zone="close", desc="Close-up, intimate viewing"
+    """
+    pass  # Implementation in Part 2
+
+
+def apply_color_space(
+    scene: bpy.types.Scene,
+    color_space: str,
+) -> None:
+    """
+    Apply color space settings to scene for matching real footage workflows.
+
+    Args:
+        scene: Scene to apply color space to
+        color_space: 'SRGB', 'CANON_LOG3', 'REC709', or 'ACES'
+
+    Example:
+        >>> apply_color_space(bpy.context.scene, 'CANON_LOG3')
+    """
+    pass  # Implementation in Part 2
+```
+
+---
+
+## File Organization
+
+```
+addons/vr_production_toolkit/
+├── __init__.py                 # Add-on registration
+├── camera_rigs.py              # create_vr180_fisheye_rig()
+├── render_utils.py             # Rendering helpers
+├── metadata_utils.py           # inject_vr180_metadata()
+├── gpu_optimization.py         # setup_gpu_rendering()
+├── ui/
+│   ├── __init__.py
+│   ├── panels.py               # UI panels
+│   ├── operators.py            # Blender operators
+│   └── properties.py           # VR180Settings PropertyGroup
+├── lib/
+│   └── spatialmedia/           # Bundled Google spatial-media
+│       ├── __init__.py
+│       ├── metadata_utils.py
+│       └── ...
+└── presets/
+    └── vr180_youtube.py        # YouTube preset
+```
+
+---
+
+## Three-Step Workflow Overview
+
+```
+Step 1: [Add VR180 Rig & Scene]
+    ↓
+  Creates complete scene setup
+  (camera, lighting, background, reference)
+    ↓
+Step 2: [Render VR180 Sequences]
+    ↓
+  Renders left/right eye OpenEXR sequences
+  (crash-safe, re-compositable)
+    ↓
+Step 3: [Composite & Export to YouTube]
+    ↓
+  Auto-imports sequences → compositor → H.265 + metadata
+  YouTube-ready MP4!
+```
+
+---
+
+**Continue to:**
+- [Part 2: Core Implementation →](./vr180-tech-02-implementation.mdx)
+- [Part 3: Operators & UI →](./vr180-tech-03-operators.mdx) - **Authoritative 4-step workflow UX**
+- [Part 4: Reference & Testing →](./vr180-tech-04-reference.mdx)
+- [Part 5: Python Implementation Code →](./vr180-tech-05-code.mdx)
+
+---
+
+**Status:** Planning - Updated for Part 3 UX (2025-12-08)
+**Last Updated:** 2025-12-08

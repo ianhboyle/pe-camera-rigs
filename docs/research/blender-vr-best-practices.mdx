@@ -1,0 +1,414 @@
+# Blender VR180 & Panoramic Camera Best Practices
+
+**Research Date:** 2025-12-07
+**Blender Version:** 5.0+
+**Focus:** VR180 production workflow optimization
+
+---
+
+## Render Engine Requirements
+
+### Cycles Only
+- **Panoramic cameras NOT supported in EEVEE**
+- Must use **Cycles** for all VR/panoramic rendering
+- EEVEE may support panoramic in future versions
+
+**Why Cycles:**
+- Supports panoramic camera types
+- Handles fisheye projections
+- Ray-traced accuracy for VR
+- Proper stereoscopic rendering
+
+---
+
+## Camera Type & Projection
+
+### Panoramic Camera Settings
+
+**Camera Type:**
+```python
+camera.data.type = 'PANO'  # Panoramic/360 camera
+```
+
+**Panorama Types:**
+
+1. **Fisheye Equisolid** (RECOMMENDED for VR180)
+   - Best matches real camera lenses (Canon RF 5.2mm Dual Fisheye)
+   - Uses lens focal length and FOV angle
+   - Takes sensor dimensions into account
+   - Most accurate for stereoscopic VR
+
+2. **Fisheye Equidistant**
+   - Does NOT correspond to real lens
+   - Gives circular fisheye using whole sensor
+   - Good for full-dome projections
+   - NOT recommended for VR180
+
+3. **Equirectangular**
+   - For 360° video (not 180°)
+   - Full spherical projection
+   - Use for VR360, not VR180
+
+**Best Practice:**
+```python
+camera.data.cycles.panorama_type = 'FISHEYE_EQUISOLID'
+camera.data.cycles.fisheye_fov = math.radians(180.0)  # 180° FOV
+camera.data.cycles.fisheye_lens = 5.2  # Matches Canon 5.2mm
+```
+
+---
+
+## Stereoscopic Settings
+
+### Enable Spherical Stereo
+
+**Location:** Camera Properties → Stereoscopy panel
+
+```python
+# Enable stereoscopic rendering
+scene.render.use_multiview = True
+scene.render.views_format = 'STEREO_3D'
+
+# Stereoscopy settings
+camera.data.stereo.convergence_mode = 'PARALLEL'
+camera.data.stereo.interocular_distance = 0.064  # 64mm IPD
+```
+
+**Key Settings:**
+- **Convergence Mode:** Parallel (not toed-in)
+- **Interocular Distance:** 0.064m (64mm - human average)
+- **Use Spherical Stereo:** Enable for panoramic cameras
+
+---
+
+## Camera Placement Best Practices
+
+### Height & Position
+
+**Eye Level:**
+- **Height:** 1.5m - 1.8m (5'0" - 5'11")
+- **Standard:** 1.6m (average human eye height sitting/standing)
+- Use actual eye level, not head height
+
+**Example:**
+```python
+camera.location = (0, 0, 1.6)  # Eye level
+```
+
+### Orientation
+
+**Critical Rule:** Keep camera LEVEL
+- **Rotation X:** 0° (level horizon)
+- **Rotation Y:** 0°
+- **Rotation Z:** Panning only if needed
+
+**Why:**
+- Any tilt causes instant motion sickness
+- Even still images with tilt cause discomfort
+- VR headset expects level horizon
+
+```python
+camera.rotation_euler = (0, 0, 0)  # Level orientation
+```
+
+---
+
+## Camera Movement
+
+### Motion Guidelines
+
+**Recommended:**
+- ✅ **Static camera** (best for VR)
+- ✅ Slow, smooth dolly/track movements
+- ✅ Tripod-based movements only
+- ✅ Motorized sliders with stabilization
+
+**Avoid:**
+- ❌ Handheld without stabilization
+- ❌ Fast pans or tilts
+- ❌ Sudden movements
+- ❌ Rotation around any axis (causes sickness)
+- ❌ Vertical camera movement (bobbing)
+
+**Best Practice:**
+> "Keep the camera straight and static - it looks better in VR and won't cause dizziness."
+
+### Stabilization
+
+If camera movement required:
+- Use virtual IMU simulation
+- Apply motion smoothing
+- Keep rotation changes under 0.25° tolerance
+- Test in actual VR headset
+
+---
+
+## Resolution & Quality
+
+### Resolution Guidelines
+
+**VR180 Side-by-Side:**
+- **Recommended:** 5760×2880 (2880×2880 per eye)
+- **Minimum:** 3840×1920 (1920×1920 per eye)
+- **High-End:** 7680×3840 (3840×3840 per eye)
+
+**Why Higher Resolution:**
+- VR headsets magnify the image
+- User can look around (not just center)
+- 180° has higher PPI than 360°
+- Pixels stretched across wide FOV
+
+**Per-Eye Resolution:**
+```python
+# For 5760×2880 SBS output
+left_eye_resolution = (2880, 2880)   # Square per eye
+right_eye_resolution = (2880, 2880)
+combined_resolution = (5760, 2880)   # Side-by-side
+```
+
+### Output Format
+
+**Initial Render:**
+- ✅ **Uncompressed PNG sequence** or **OpenEXR**
+- ✅ 16-bit color depth minimum
+- ✅ Highest quality settings
+
+**Why Uncompressed First:**
+> "For outputting images or animation it's best to do it uncompressed since compression artifacts are very noticeable in VR"
+
+**Final Encode:**
+- H.265/HEVC at 100Mbps+
+- After compositing in Blender or external tool
+
+---
+
+## Render Performance
+
+### Render Time Considerations
+
+**Stereoscopic Doubles Render Time:**
+> "It renders two images, one for each eye then combines them, so render times are guaranteed to be double a flat-screen render."
+
+**Optimization Strategies:**
+1. **Use GPU rendering** (OptiX for NVIDIA)
+2. **Adaptive sampling** to reduce noise
+3. **Denoising** (OptiX denoiser recommended)
+4. **Lower samples for preview** (128-256)
+5. **Higher samples for final** (512-1024+)
+
+**Sample Settings:**
+```python
+# Preview
+scene.cycles.samples = 256
+scene.cycles.use_adaptive_sampling = True
+
+# Final
+scene.cycles.samples = 1024
+scene.cycles.use_denoising = True
+scene.cycles.denoiser = 'OPTIX'  # If available
+```
+
+---
+
+## Compositing for VR180
+
+### Side-by-Side Workflow
+
+**Render Setup:**
+1. Render left eye camera
+2. Render right eye camera
+3. Combine in compositor to SBS layout
+
+**Compositor Nodes:**
+```
+Left Eye Render → Translate (X: 0) → Alpha Over
+Right Eye Render → Translate (X: 2880) → Alpha Over → Composite
+```
+
+**Output Resolution:**
+- Final: 5760×2880 (both eyes combined)
+- Aspect: 2:1 (side-by-side)
+
+### Denoise Per Eye
+
+**Best Practice:**
+- Denoise EACH eye separately before combining
+- Use OptiX denoiser if available
+- Prevents stereo mismatch artifacts
+
+```python
+# In compositor
+Left Render → Denoise → Translate → Combine
+Right Render → Denoise → Translate → Combine
+```
+
+---
+
+## Color & Exposure
+
+### Color Management
+
+**Recommended:**
+- **View Transform:** Standard or Filmic
+- **Look:** None (neutral) or Medium High Contrast
+- **Exposure:** 0 (adjust lighting instead)
+
+**Color Space:**
+- **sRGB** for web/YouTube
+- **Rec.709** for video production
+- **ACES** for high-end workflows
+
+### Lighting Considerations
+
+**VR-Specific Lighting:**
+- Even, soft lighting reduces artifacts
+- Avoid extreme highlights (blown out areas very noticeable)
+- Conservative contrast ratio
+- Test renders in actual VR headset
+
+---
+
+## Testing & Validation
+
+### VR Headset Testing
+
+**Critical:**
+- Always test renders in actual VR headset
+- Desktop preview NOT sufficient
+- Check for:
+  - Motion sickness triggers
+  - Stereo alignment
+  - Comfortable viewing
+  - No excessive parallax
+
+### Common Issues
+
+**Issue: Stereo Misalignment**
+- Check IPD is consistent (64mm)
+- Verify cameras are in same plane
+- Ensure parallel convergence mode
+
+**Issue: Uncomfortable Depth**
+- Reduce IPD for close objects (60mm)
+- Increase IPD for distant vistas (68mm)
+- Stay within 60-68mm range
+
+**Issue: Artifacts in VR**
+- Increase render samples
+- Use denoising carefully (can blur stereo)
+- Avoid compression during preview
+
+---
+
+## File Organization
+
+### Scene Structure
+
+**Recommended Collections:**
+```
+Scene
+├── CAMERAS
+│   ├── VR180_Rig (parent empty)
+│   ├── Camera_Left
+│   └── Camera_Right
+├── LIGHTING
+├── SET
+└── REFERENCE_OBJECTS
+```
+
+**Benefits:**
+- Easy to hide/show camera rigs
+- Organized viewport
+- Cleaner outliner
+- Easier to manage multiple rigs
+
+---
+
+## Add-on Workflow Optimization
+
+### One-Click Setup
+
+**Automate:**
+1. ✅ Create properly positioned camera rig
+2. ✅ Set all camera parameters (Equisolid, 180° FOV, etc.)
+3. ✅ Configure render settings (Cycles, GPU, samples)
+4. ✅ Set up compositor for SBS output
+5. ✅ Configure output settings (H.265, 60fps)
+6. ✅ Save as preset or startup file
+
+### Presets to Include
+
+**Resolution Presets:**
+- YouTube 4K: 3840×1920 (60fps)
+- YouTube 5.7K: 5760×2880 (60fps)
+- YouTube 8K: 7680×3840 (30fps)
+
+**Quality Presets:**
+- Preview: 256 samples, denoising, lower res
+- Production: 512 samples, denoising
+- Final: 1024+ samples, no denoise
+
+**Scene Presets:**
+- Studio: Indoor lighting, neutral background
+- Outdoor: Sun + sky, natural lighting
+- Night: Low light optimized settings
+
+---
+
+## Performance Tips
+
+### GPU Optimization
+
+**NVIDIA OptiX:**
+```python
+# In preferences
+cycles_prefs.compute_device_type = 'OPTIX'
+cycles_prefs.devices[0].use = True  # Enable GPU
+
+# In scene
+scene.cycles.device = 'GPU'
+scene.cycles.denoiser = 'OPTIX'
+```
+
+**Tile Size:**
+- GPU: 512×512 or 1024×1024
+- CPU: 32×32 or 64×64
+
+### Memory Management
+
+**Large Resolutions:**
+- Enable persistent data
+- Use progressive refine
+- Render to disk (not RAM)
+- Consider splitting long animations
+
+```python
+scene.cycles.use_persistent_data = True
+scene.render.use_file_extension = True
+scene.render.use_overwrite = False  # Don't overwrite frames
+```
+
+---
+
+## Sources & References
+
+- [Blender 5.0 Manual - Cameras](https://docs.blender.org/manual/en/latest/render/cycles/object_settings/cameras.html)
+- [Blender Stack Exchange: How to render 180VR video](https://blender.stackexchange.com/questions/302325/how-to-render-180vr-video-though-virtual-camera)
+- [DeoVR Tutorial: Convert 3D CGI to VR180](https://deovr.com/blog/132-tutorial-convert-your-3d-cgi-animations-into-immersive-vr180)
+- [Open3DLab: Blender 180 VR Quick Start](https://open3dlab.com/project/467dbce7-6312-465c-b657-6de4c2925c84/)
+- [Blender Artists: Camera setup for 180 degree VR](https://blenderartists.org/t/camera-setup-for-180-degree-vr-rendering/1148395)
+
+---
+
+## Key Takeaways
+
+1. ✅ **Use Cycles** (EEVEE doesn't support panoramic)
+2. ✅ **Fisheye Equisolid** for realistic VR180
+3. ✅ **Keep camera level** (no tilt = no sickness)
+4. ✅ **Static or minimal movement** preferred
+5. ✅ **Uncompressed output first** (compress later)
+6. ✅ **Test in actual VR headset** (desktop preview inadequate)
+7. ✅ **Denoise per-eye** before combining
+8. ✅ **64mm IPD** standard (60-68mm range)
+9. ✅ **Eye level height** (1.6m typical)
+10. ✅ **Higher resolution than you think** (VR magnifies everything)

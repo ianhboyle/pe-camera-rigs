@@ -1,0 +1,261 @@
+# YouTube VR180 Video Specifications
+
+**Research Date:** 2025-12-07
+**Target:** Direct-to-YouTube VR180 workflow from Blender
+
+---
+
+## Overview
+
+VR180 is YouTube's stereoscopic 180° VR video format that captures a front-facing 180-degree field of view with dual channels for left and right eyes, providing depth perception in VR headsets.
+
+---
+
+## Hardware Specifications (for reference)
+
+### Camera Requirements
+- **IPD (Interpupillary Distance):** 64mm between optical axes (emulates human eye separation)
+- **Field of View:** ~100° typical for VR headsets, up to 180° capture
+- **Imaging Planes:** Must be aligned and in the same plane
+- **Frame Rate:** 60fps minimum (30fps causes motion sickness in VR)
+  - VR headset refresh: 60-120fps
+  - Higher frame rates critical for smooth motion
+
+### IMU (Inertial Measurement Unit)
+- High-quality IMU recommended for motion stabilization
+- Required for handheld capture (otherwise tripod-only)
+- Rotation estimation tolerance: 0.25°
+- Critical for reducing motion-induced sickness
+
+---
+
+## Video Format Specifications
+
+### Resolution
+
+**Recommended for VR180 Side-by-Side:**
+- **5760×2880** pixels (combined SBS)
+  - Left eye: 2880×2880
+  - Right eye: 2880×2880
+- **Aspect Ratio:** 2:1 (side-by-side combined)
+- **Per-Eye Ratio:** 1:1 (square for each eye)
+
+**Alternative Resolutions:**
+- 4K: 3840×1920 (1920×1920 per eye)
+- 8K: 7680×3840 (3840×3840 per eye)
+
+### Encoding
+
+**Codec:**
+- **H.265 (HEVC)** - Required for best results
+- Bitrate: **100Mbps** minimum for quality
+
+**Container:**
+- MP4 or MOV
+
+**Aspect Ratio:**
+- **16:9** or **2:1** for best compatibility
+- YouTube optimized for landscape orientation
+
+### Frame Rate
+- **Minimum:** 30fps (not recommended for VR)
+- **Recommended:** 60fps
+- **Optimal:** 90-120fps (matches VR headset refresh rates)
+
+---
+
+## Projection Format
+
+### VR180 Specific
+- **Projection Type:** Mesh projection (most generic)
+- **Works With:** Fisheye projection (Equisolid recommended)
+- **Field of View:** 180° horizontal and vertical
+- **Stereo Layout:** Side-by-Side (Left-Right)
+
+### Metadata Requirements
+
+**Spatial Metadata V2:**
+- Must inject VR180 metadata before upload
+- Camera Motion Metadata Track required
+- Includes: camera orientation, gyroscope, accelerometer data
+
+**Tools for Metadata Injection:**
+- Google Spatial Media Metadata Injector
+- Adobe Premiere (2019 or higher)
+- Custom scripts using spatial-media tools
+
+---
+
+## Upload Requirements
+
+### Pre-Upload Processing
+1. **Modify file with spatial metadata** using:
+   - Adobe Premiere (2019+)
+   - Google's spatial-media scripts
+   - Other VR180-compatible tools
+
+2. **Processing Time:**
+   - Up to 1 hour for 360°/180° playback to be available after upload
+
+### File Size
+- Uncompressed renders strongly recommended initially
+- Compress with H.265 before upload
+- Large files acceptable (YouTube handles up to several GB)
+
+---
+
+## Best Practices for YouTube VR180
+
+### Video Quality
+- **Resolution:** Higher is better - 5760×2880 or higher
+- **Bitrate:** 100Mbps+ for H.265
+- **Color Space:** Rec.709 or Rec.2020
+- **Dynamic Range:** SDR standard, HDR supported
+
+### Content Considerations
+- **Camera Movement:** Minimal recommended (causes motion sickness)
+- **Camera Height:** Eye level (~1.6m / 5'3" - 5'11")
+- **Orientation:** Keep camera level (90° angle)
+- **Stabilization:** Critical for handheld - use IMU data
+
+### Audio
+- **Spatial Audio:** Ambisonic or spatial audio highly recommended
+- **Channels:** Stereo minimum, 4-channel+ for spatial
+- **Sample Rate:** 48kHz
+- **Bitrate:** 384kbps+ for spatial audio
+
+---
+
+## Blender Export Settings for YouTube VR180
+
+Based on research, optimal settings:
+
+```
+Resolution:
+  X: 5760
+  Y: 2880
+  Aspect Ratio: 2:1
+
+Frame Rate: 60fps (or 30fps minimum)
+
+Output:
+  File Format: FFmpeg video
+  Container: HEVC/H.265 in MP4
+  Encoding:
+    Video Codec: H.265
+    Output Quality: Perceptually Lossless or High
+    Encoding Speed: Medium (good/medium preset)
+    Bitrate: 100,000 kbps (100Mbps)
+
+  Color:
+    Color Space: sRGB or Rec.709
+    Bit Depth: 8-bit (or 10-bit for HDR)
+
+Audio:
+  Codec: AAC
+  Bitrate: 384 kbps
+  Sample Rate: 48000 Hz
+```
+
+---
+
+## Workflow Summary
+
+### Blender to YouTube Pipeline
+
+1. **Render in Blender:**
+   - Use VR180 fisheye rig (Equisolid, 180° FOV, 64mm IPD)
+   - Output: 5760×2880, 60fps, uncompressed or high-quality intermediate
+
+2. **Composite Side-by-Side:**
+   - Combine left/right eye renders
+   - Output as single SBS video
+
+3. **Encode with H.265:**
+   - 100Mbps bitrate
+   - MP4 container
+   - AAC audio if applicable
+
+4. **Inject Spatial Metadata:**
+   - Use Google's spatial-media tools or Adobe Premiere
+   - Mark as VR180, stereoscopic, left-right layout
+
+5. **Upload to YouTube:**
+   - Standard upload process
+   - Wait up to 1 hour for VR processing
+
+---
+
+## Common Issues & Solutions
+
+### Issue: Video Not Showing as VR180
+- **Solution:** Ensure spatial metadata is injected correctly
+- **Check:** File must have VR180 projection metadata before upload
+
+### Issue: Stereo Effect Not Working
+- **Solution:** Verify IPD is set to 64mm
+- **Check:** Left/right images are properly aligned (same imaging plane)
+
+### Issue: Motion Sickness Reports
+- **Solution:** Increase frame rate to 60fps minimum
+- **Check:** Camera movement is minimal and smooth
+- **Check:** Camera is level and at eye height
+
+### Issue: Low Quality After Upload
+- **Solution:** Increase bitrate to 100Mbps+
+- **Solution:** Use H.265 codec (not H.264)
+- **Wait:** YouTube may still be processing higher quality versions
+
+---
+
+## Technical References
+
+### Specifications
+- [Google Spatial Media VR180 Spec](https://github.com/google/spatial-media/blob/master/docs/vr180.md)
+- [YouTube Help: Upload 180° or 360° videos](https://support.google.com/youtube/answer/6178631?hl=en)
+- [VR Video Formats Explained](https://360labs.net/blog/vr-video-formats-explained)
+
+### Tools
+- [Google Spatial Media Tools](https://github.com/google/spatial-media)
+- [Spatial Media Metadata Injector](https://github.com/Vargol/spatial-media)
+
+### Technical Details
+- [VR180 Hardware Specifications](https://github.com/google/vr180/blob/master/docs/hardware.md)
+- [YouTube Encoding Settings](https://support.google.com/youtube/answer/1722171?hl=en)
+
+---
+
+## Key Takeaways for Blender Add-on
+
+To create the easiest workflow for YouTube VR180:
+
+1. ✅ **Default to YouTube specs:**
+   - 5760×2880 resolution
+   - 64mm IPD
+   - 180° FOV
+   - Fisheye Equisolid projection
+
+2. ✅ **One-click compositor:**
+   - Auto-combine left/right to SBS
+   - Direct H.265 encoding
+   - Proper aspect ratio output
+
+3. ✅ **Metadata handling:**
+   - Either auto-inject spatial metadata
+   - Or provide clear instructions/scripts for post-processing
+
+4. ✅ **Optimal defaults:**
+   - 60fps frame rate
+   - 100Mbps bitrate
+   - Eye-level camera height (1.6m)
+   - Level orientation
+
+---
+
+## Sources
+
+- [Google Spatial Media VR180 Specification](https://github.com/google/spatial-media/blob/master/docs/vr180.md)
+- [YouTube Help: Upload 180- or 360-degree videos](https://support.google.com/youtube/answer/6178631?hl=en)
+- [VR Video Formats Explained - 360 Labs](https://360labs.net/blog/vr-video-formats-explained)
+- [The 3D VR 180 video format - Side by Side](https://vr.cam/the-vr-180-video-format/)
+- [VR180 Hardware Specifications](https://github.com/google/vr180/blob/master/docs/hardware.md)

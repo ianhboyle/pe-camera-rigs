@@ -1,0 +1,150 @@
+---
+title: "Orbit Camera: Live Controller Workflow"
+description: "A procedural, non-destructive, and animatable orbit rig powered by Geometry Nodes."
+status: Planning
+priority: High
+---
+
+# Orbit Camera: Live Controller Workflow
+
+**See also:**
+- [Part 2: Code & Node Implementation →](./orbit-02-code.mdx)
+
+---
+
+## Executive Summary
+
+The **Live Controller Workflow** is a new, powerful approach for the Orbit Camera, using Geometry Nodes to create a fully procedural and non-destructive rig. This replaces the old "1-click preset" system with a dynamic controller that provides vastly superior flexibility and control.
+
+- ✅ **Procedural Animation:** The orbit is animated mathematically based on the scene's current frame. No keyframes are created, allowing for infinite duration and easy speed changes.
+- ✅ **Interactive Control:** Change the orbit radius, speed, height, and focal length in real-time from the modifier panel.
+- ✅ **Fully Animatable:** Every property is a standard input on the modifier, ready to be keyframed for dynamic, complex shots (e.g., camera spiraling inwards).
+- ✅ **Non-Destructive:** The entire rig is a single modifier. Tweak, disable, or remove it at any time without any complex cleanup.
+
+**Refinement Goals:**
+1. **Live, Animatable Properties:** Every parameter should be interactive and keyframe-ready.
+2. **Procedural Motion:** Eliminate baked keyframes for a more flexible, time-independent animation system.
+3. **Centralized Controls:** Consolidate all settings into a single, intuitive modifier panel.
+4. **Clean & Contained:** The rig is managed by one controller object.
+
+---
+
+## The Live Controller Workflow
+
+The new workflow centers on adding a single **"Orbit Controller"** object. This object contains a **Geometry Nodes modifier** that procedurally generates the camera and calculates its orbiting motion on every frame.
+
+1.  **Add Controller:** The user adds the rig via `Add > Camera > Orbit Controller`. An operator can set initial values based on a chosen preset (e.g., "Product Shot").
+2.  **Select Controller:** The user selects the newly created controller object.
+3.  **Go to Modifiers:** All rig controls are now located in the **Modifier Properties** tab.
+4.  **Tweak & Animate:** The user can now change the orbit radius, animation speed, camera height, and more by simply adjusting sliders. Pressing `Spacebar` shows the smooth, procedural orbit immediately.
+
+---
+
+## The Live Controller System
+
+### UI Panel Design (Modifier Properties)
+
+All rig controls are now located in a single Geometry Nodes modifier panel. This is the central hub for controlling and animating the orbit camera.
+
+```
+┌───────────────────────────────────────────────────┐
+│ ▼  ज्यो Orbit Camera Controller                      │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 🎯 Target                                         │
+│                                                   │
+│    Target Object: [ Eyedropper: Scene Origin ]     │
+│    (The camera will orbit around this point)        │
+│                                                   │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 📷 Camera Settings                                │
+│                                                   │
+│    Orbit Radius:   [ 3.0 m   ]═══════ sliders ═══│
+│    Camera Height:  [ 1.5 m   ]═══════ sliders ═══│
+│    Focal Length:   [ 35.0 mm ]═══════ sliders ═══│
+│                                                   │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 🎬 Animation                                      │
+│                                                   │
+│    Duration (Frames): [ 240 ] (for one 360° loop)  │
+│    Speed Multiplier:  [ 1.0 ]x ═══════ sliders ═══│
+│    [ ] Reverse Direction (Counter-Clockwise)      │
+│                                                   │
+│    Easing: [ Ease In-Out      ▼]                   │
+│          • Linear                                 │
+│          • Ease In-Out (Smooth) ⭐                 │
+│          • Ease In                                │
+│          • Ease Out                               │
+│                                                   │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ 💡 Advanced                                       │
+│                                                   │
+│    Start Angle Offset: [ 0.0°  ]══════ sliders ═══│
+│    (Changes the starting point of the orbit)      │
+│                                                   │
+└───────────────────────────────────────────────────┘
+```
+
+---
+
+## How The Controller Works
+
+The `Add Orbit Controller` operator performs the initial setup, but the Geometry Nodes modifier does all the heavy lifting.
+
+1.  **Operator Creates Controller:** An operator creates an object (e.g., an empty) and attaches the "Orbit Camera" Geometry Nodes modifier to it. It can set initial values for the inputs based on a chosen preset like "Product" or "Character".
+2.  **Node Group Generates Rig:** The node group procedurally:
+    *   Creates a camera object.
+    *   Creates a target point (or uses the specified `Target Object`).
+3.  **Procedural Animation Logic:** On each frame, the node group:
+    *   Gets the current frame number from the scene's `Time` input.
+    *   Calculates the current point in the animation cycle using the `Duration (Frames)` input (e.g., `(frame % duration) / duration`).
+    *   Applies the chosen `Easing` function to the cycle value for smooth motion.
+    *   Calculates the camera's position in a circle using `sin()` and `cos()`, the `Orbit Radius`, and the `Camera Height`.
+    *   Sets the camera's position and points it at the target.
+
+This entire calculation happens on the fly, meaning there are no keyframes to manage or delete.
+
+---
+
+## Key Parameters (Modifier Inputs)
+
+- **Target Object:** An optional object picker. If left empty, the camera orbits the world origin `(0,0,0)`. If an object is picked, the entire rig will orbit that object.
+- **Orbit Radius:** The distance from the target to the camera. Animatable for spiraling shots.
+- **Camera Height:** The Z-axis height of the camera relative to the target. Animatable for crane-style shots.
+- **Focal Length:** Directly controls the focal length of the generated camera.
+- **Duration (Frames):** The number of frames it takes to complete one full 360° rotation. Changing this instantly speeds up or slows down the animation.
+- **Speed Multiplier:** An additional control to speed up or slow down the animation without changing the duration value.
+- **Reverse Direction:** A simple boolean to switch between clockwise and counter-clockwise motion.
+- **Easing:** A dropdown to select the motion curve (Linear, Ease In-Out, etc.) for more cinematic movement.
+
+---
+
+## Key UX Principles (Revised)
+
+### 1. Fully Procedural & Non-Destructive ✅
+The animation is generated by math, not keyframes. The rig is a modifier that can be tweaked or removed at any time without damaging the scene.
+
+### 2. Live and Animatable ✅
+Every important parameter is a slider or checkbox in the modifier panel, ready to be controlled and keyframed. This unlocks creative possibilities like dynamic zooms, spirals, and speed ramps.
+
+### 3. Simplified Workflow ✅
+The user no longer needs to think about pivot points, constraints, or keyframes. They add the controller, place their object at the target, and press play. Tweaking is as simple as moving a slider.
+
+### 4. Centralized and Clean ✅
+All controls are in one logical place (the modifier). The rig itself is contained within a single controller object, keeping the outliner organized.
+
+---
+
+## Summary
+
+The **Live Controller Workflow** for the Orbit Camera is a paradigm shift from the old preset system. By leveraging Geometry Nodes, it provides a far more powerful, flexible, and intuitive system that aligns perfectly with modern Blender workflows.
+
+1.  **Procedural Animation:** No keyframes means infinite flexibility in timing and speed.
+2.  **Interactive Control:** All settings are live sliders, not static values.
+3.  **Animation-Ready:** Easily animate any aspect of the orbit for complex, professional shots.
+4.  **Simple and Clean:** The user experience is simplified to adding a controller and tweaking its properties.
+
+**Result:** Users can achieve simple turntables faster than before, while also having the tools to easily create much more complex, animated camera motion without ever leaving the modifier panel.

@@ -1,0 +1,577 @@
+---
+title: VR360 Mono Camera - Part 5: Python Implementation Code
+description: Python operator implementations for 4-step workflow
+status: Planning
+priority: High
+---
+
+# VR360 Mono Camera - Part 5: Python Implementation Code
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr360mono-tech-01-overview.mdx)
+- [← Part 2: Core Implementation](./vr360mono-tech-02-implementation.mdx)
+- [← Part 3: Operators & UI (UX Design)](./vr360mono-tech-03-operators.mdx)
+- [← Part 4: Reference & Testing](./vr360mono-tech-04-reference.mdx)
+
+---
+
+## Overview
+
+This document contains **copy-paste ready Python code** for all VR360 Mono Camera operators.
+
+**NOTE:** The UX design in Part 3 may have evolved beyond this code. 
+This Part 5 contains the original operator implementations and should be updated to match the refined UX workflows in Part 3.
+
+---
+
+# VR360 Mono Camera - Part 3: Operators & UI
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr360mono-tech-01-overview.mdx)
+- [← Part 2: Core Implementation](./vr360mono-tech-02-implementation.mdx)
+- [Part 4: Reference & Testing →](./vr360mono-tech-04-reference.mdx)
+
+---
+
+## Operators
+
+### Quick Create Operator (Simplified UX)
+
+```python
+# File: addons/vr_production_toolkit/ui/operators.py
+
+class VR360_OT_QuickCreate(bpy.types.Operator):
+    """Quick create VR360 scene with preset (one-click setup)"""
+    bl_idname = "vr360.quick_create"
+    bl_label = "Quick Create VR360 Scene"
+    bl_description = "One-click VR360 mono scene creation with preset and auto-activate"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    preset: bpy.props.EnumProperty(
+        name="Preset",
+        description="VR360 scene preset",
+        items=[
+            ('YOUTUBE_8K', "YouTube 8K", "7680×3840, 60fps, best quality"),
+            ('YOUTUBE_5K', "YouTube 5K", "5120×2560, 60fps, balanced"),
+            ('YOUTUBE_4K', "YouTube 4K", "3840×2160, 60fps, faster"),
+            ('META_QUEST', "Meta Quest", "5760×2880, 72fps, Quest optimized"),
+        ],
+        default='YOUTUBE_5K',
+    )
+
+    def execute(self, context):
+        try:
+            # Get preset resolution
+            resolutions = {
+                'YOUTUBE_8K': (7680, 3840),
+                'YOUTUBE_5K': (5120, 2560),
+                'META_QUEST': (5760, 2880),
+                'YOUTUBE_4K': (3840, 2160),
+            }
+            res_x, res_y = resolutions[self.preset]
+
+            # Create camera
+            camera = create_vr360_mono_camera(
+                camera_height=1.6,
+                resolution=(res_x, res_y),
+            )
+
+            # Add basic scene elements
+            sphere = create_reference_sphere(radius=0.5, location=(0, 0, 1.0))
+            create_cyclorama(size=20, height=10)
+
+            # Simple 3-point lighting
+            create_3point_lighting()
+
+            # Setup GPU and color
+            setup_gpu_rendering(context.scene)
+            apply_color_space(context.scene, 'ACES')
+
+            # Auto-level camera
+            auto_level_camera(camera)
+
+            # Auto-activate camera view
+            context.scene.camera = camera
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            space.region_3d.view_perspective = 'CAMERA'
+                            break
+
+            self.report({'INFO'}, f"VR360 {self.preset} scene created and activated")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create scene: {str(e)}")
+            return {'CANCELLED'}
+```
+
+### Step 1: Add VR360 Camera & Scene Operator
+
+```python
+# File: addons/vr_production_toolkit/ui/operators.py
+
+class VR360_OT_AddCameraAndScene(bpy.types.Operator):
+    """Add complete VR360 scene setup (camera, lighting, background, reference)"""
+    bl_idname = "vr360.add_camera_and_scene"
+    bl_label = "Add VR360 Camera & Scene"
+    bl_description = "Create complete VR360 production scene with camera, lighting, and reference objects"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        settings = context.scene.vr360_mono_settings
+
+        try:
+            # 1. Create VR360 camera
+            self.report({'INFO'}, "Creating VR360 camera...")
+            camera = create_vr360_mono_camera(
+                camera_height=settings.camera_height,
+                resolution=(settings.resolution_x, settings.resolution_y),
+            )
+
+            # 2. Create reference sphere at origin
+            self.report({'INFO'}, "Adding reference sphere...")
+            sphere = create_reference_sphere(
+                radius=0.5,
+                location=(0, 0, 1.0),
+            )
+
+            # 3. Create cyclorama background
+            self.report({'INFO'}, "Creating cyclorama background...")
+            floor, wall = create_cyclorama(
+                size=20,  # 20m wide
+                height=10,  # 10m tall
+            )
+
+            # 4. Create 3-point lighting
+            self.report({'INFO'}, "Setting up 3-point lighting...")
+            key_light, fill_light, rim_light = create_3point_lighting()
+
+            # 5. Setup GPU rendering
+            setup_gpu_rendering(context.scene)
+
+            # 6. Apply color space
+            apply_color_space(context.scene, settings.color_space)
+
+            # 7. Auto-level camera if enabled
+            if settings.auto_level_on_create:
+                auto_level_camera(camera)
+
+            # 8. Apply quality settings
+            apply_quality_preset(context.scene, settings)
+
+            # Success report
+            self.report({'INFO'}, "✓ VR360 scene setup complete!")
+            self.report({'INFO'}, f"  Camera: {camera.name}")
+            self.report({'INFO'}, f"  Reference: {sphere.name}")
+            self.report({'INFO'}, "  Lighting: Key, Fill, Rim")
+            self.report({'INFO'}, "  Background: Cyclorama")
+            self.report({'INFO'}, "Ready to add your content!")
+
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to create scene: {str(e)}")
+            return {'CANCELLED'}
+
+
+def apply_quality_preset(scene, settings):
+    """Apply render quality settings."""
+
+    # Sample count
+    if settings.quality_preset != 'CUSTOM':
+        quality_map = {
+            'PREVIEW': 256,
+            'PRODUCTION': 512,
+            'FINAL': 1024,
+        }
+        scene.cycles.samples = quality_map.get(settings.quality_preset, 512)
+    else:
+        scene.cycles.samples = settings.samples
+
+    # Denoising
+    scene.cycles.use_denoising = settings.use_denoising
+
+    # Adaptive sampling
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = settings.adaptive_threshold
+
+    # Path guiding (Blender 5.0+)
+    if settings.use_path_guiding:
+        try:
+            scene.cycles.use_path_guiding = True
+        except:
+            pass
+
+    print(f"Quality preset applied: {settings.quality_preset}")
+    print(f"  Samples: {scene.cycles.samples}")
+    print(f"  Denoising: {scene.cycles.use_denoising}")
+```
+
+---
+
+### Step 2: Render & Export to YouTube Operator
+
+```python
+class VR360_OT_RenderAndExport(bpy.types.Operator):
+    """Render VR360 video and export YouTube-ready MP4 with metadata"""
+    bl_idname = "vr360.render_and_export"
+    bl_label = "Render & Export to YouTube"
+    bl_description = "Render equirectangular video and export YouTube-ready MP4 with metadata"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        settings = context.scene.vr360_mono_settings
+
+        # 1. Find VR360 camera
+        camera = find_vr360_camera()
+        if not camera:
+            self.report({'ERROR'}, "No VR360 camera found! Run 'Add VR360 Camera & Scene' first.")
+            return {'CANCELLED'}
+
+        # 2. Setup output paths
+        output_base = bpy.path.abspath(settings.output_path)
+        os.makedirs(output_base, exist_ok=True)
+
+        temp_file = os.path.join(output_base, "vr360_temp.mp4")
+        output_file = os.path.join(output_base, "vr360_youtube.mp4")
+
+        # 3. Configure render settings
+        self.report({'INFO'}, "Configuring render settings...")
+        configure_render_settings(context.scene, settings, temp_file)
+
+        # 4. Render video
+        self.report({'INFO'}, "Rendering VR360 video...")
+        bpy.ops.render.render(animation=True, write_still=False)
+
+        # 5. Inject VR360 metadata
+        if settings.auto_inject_metadata:
+            self.report({'INFO'}, "Injecting VR360 spatial metadata...")
+            success = inject_vr360_metadata(
+                temp_file,
+                output_file,
+                verify=settings.verify_metadata,
+            )
+
+            if success:
+                os.remove(temp_file)  # Delete temp file
+                self.report({'INFO'}, "✓ Metadata injected successfully!")
+            else:
+                self.report({'WARNING'}, "Metadata injection failed - manual injection needed")
+                # Keep temp file for manual processing
+        else:
+            # No metadata injection, just rename temp to final
+            os.rename(temp_file, output_file)
+
+        # 6. Success report with file info
+        file_size = os.path.getsize(output_file) / (1024**3)  # Convert to GB
+        frame_count = context.scene.frame_end - context.scene.frame_start + 1
+        duration = frame_count / settings.fps
+
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "=" * 50)
+        self.report({'INFO'}, "✓ VR360 YOUTUBE VIDEO READY!")
+        self.report({'INFO'}, "=" * 50)
+        self.report({'INFO'}, f"File: {output_file}")
+        self.report({'INFO'}, f"Size: {file_size:.2f} GB")
+        self.report({'INFO'}, f"Resolution: {settings.resolution_x}×{settings.resolution_y}")
+        self.report({'INFO'}, f"Frame rate: {settings.fps} fps")
+        self.report({'INFO'}, f"Duration: {duration:.1f}s ({frame_count} frames)")
+        self.report({'INFO'}, f"Bitrate: {settings.bitrate} Mbps")
+        self.report({'INFO'}, f"Metadata: {'✓ Injected' if settings.auto_inject_metadata else '⚠ Manual needed'}")
+        self.report({'INFO'}, "")
+        self.report({'INFO'}, "Ready to upload to YouTube!")
+        self.report({'INFO'}, "=" * 50)
+
+        return {'FINISHED'}
+
+
+def configure_render_settings(scene, settings, output_file):
+    """Configure scene render settings."""
+
+    # Output path
+    scene.render.filepath = output_file
+
+    # Resolution
+    scene.render.resolution_x = settings.resolution_x
+    scene.render.resolution_y = settings.resolution_y
+    scene.render.resolution_percentage = 100
+
+    # Frame rate
+    scene.render.fps = settings.fps
+
+    # FFmpeg H.265 settings
+    scene.render.image_settings.file_format = 'FFMPEG'
+    scene.render.ffmpeg.format = 'MPEG4'
+    scene.render.ffmpeg.codec = 'H265'
+    scene.render.ffmpeg.video_bitrate = settings.bitrate * 1000  # Convert Mbps to kbps
+    scene.render.ffmpeg.constant_rate_factor = 'HIGH'
+    scene.render.ffmpeg.gopsize = 15
+    scene.render.ffmpeg.ffmpeg_preset = 'GOOD'
+
+    # Audio settings
+    scene.render.ffmpeg.audio_codec = 'AAC'
+    scene.render.ffmpeg.audio_bitrate = 384
+
+    print(f"Render configured:")
+    print(f"  Output: {output_file}")
+    print(f"  Resolution: {settings.resolution_x}×{settings.resolution_y}")
+    print(f"  FPS: {settings.fps}")
+    print(f"  Bitrate: {settings.bitrate} Mbps")
+
+
+def find_vr360_camera():
+    """Find VR360 camera in scene."""
+
+    for obj in bpy.data.objects:
+        if obj.type == 'CAMERA' and obj.name.startswith("VR360_Camera"):
+            return obj
+    return None
+```
+
+---
+
+### Helper Operators
+
+```python
+class VR360_OT_CheckCameraLevel(bpy.types.Operator):
+    """Check if VR360 camera is level"""
+    bl_idname = "vr360.check_camera_level"
+    bl_label = "Check Camera Level"
+    bl_description = "Check if camera is level (prevents motion sickness)"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        settings = context.scene.vr360_mono_settings
+        camera = find_vr360_camera()
+
+        if not camera:
+            self.report({'ERROR'}, "No VR360 camera found!")
+            return {'CANCELLED'}
+
+        is_level, tilt_x, tilt_y = check_camera_level(camera, settings.level_tolerance)
+
+        if is_level:
+            self.report({'INFO'}, f"✓ Camera is level (X: {tilt_x:.2f}°, Y: {tilt_y:.2f}°)")
+        else:
+            self.report({'WARNING'}, f"⚠ Camera tilted! X: {tilt_x:.2f}°, Y: {tilt_y:.2f}°")
+            self.report({'WARNING'}, "Use 'Auto-Level Camera' or adjust manually")
+
+        return {'FINISHED'}
+
+
+class VR360_OT_AutoLevelCamera(bpy.types.Operator):
+    """Automatically level the VR360 camera"""
+    bl_idname = "vr360.auto_level_camera"
+    bl_label = "Auto-Level Camera"
+    bl_description = "Automatically level camera (set X and Y rotation to 0)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        camera = find_vr360_camera()
+
+        if not camera:
+            self.report({'ERROR'}, "No VR360 camera found!")
+            return {'CANCELLED'}
+
+        auto_level_camera(camera)
+        self.report({'INFO'}, f"✓ Camera leveled: {camera.name}")
+
+        return {'FINISHED'}
+
+
+class VR360_OT_ApplyResolutionPreset(bpy.types.Operator):
+    """Apply resolution preset"""
+    bl_idname = "vr360.apply_resolution_preset"
+    bl_label = "Apply Resolution Preset"
+    bl_description = "Apply selected resolution preset"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        settings = context.scene.vr360_mono_settings
+
+        if settings.resolution_preset == 'CUSTOM':
+            self.report({'INFO'}, "Custom resolution - no preset to apply")
+            return {'FINISHED'}
+
+        w, h, fps = apply_resolution_preset(settings.resolution_preset, settings)
+        self.report({'INFO'}, f"Preset applied: {w}×{h} @ {fps}fps")
+
+        return {'FINISHED'}
+```
+
+---
+
+## UI Panel
+
+```python
+# File: addons/vr_production_toolkit/ui/panels.py
+
+class VR360_PT_MainPanel(bpy.types.Panel):
+    """VR360 Production Toolkit main panel"""
+    bl_label = "VR360 Toolkit"
+    bl_idname = "VR360_PT_main_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.vr360_mono_settings
+
+        # Header
+        box = layout.box()
+        box.label(text="VR360 Monoscopic Camera", icon='CAMERA_DATA')
+
+        # Camera settings
+        col = box.column(align=True)
+        col.prop(settings, "camera_height")
+
+        # Step 1: Add Camera & Scene
+        layout.separator()
+        box = layout.box()
+        box.label(text="Step 1: Setup Scene", icon='SCENE_DATA')
+        box.operator("vr360.add_camera_and_scene", icon='ADD')
+
+        # Resolution
+        layout.separator()
+        box = layout.box()
+        box.label(text="Resolution", icon='OUTPUT')
+
+        row = box.row(align=True)
+        row.prop(settings, "resolution_preset", text="")
+        if settings.resolution_preset != 'CUSTOM':
+            row.operator("vr360.apply_resolution_preset", text="", icon='FILE_REFRESH')
+
+        if settings.resolution_preset == 'CUSTOM':
+            row = box.row(align=True)
+            row.prop(settings, "resolution_x", text="W")
+            row.prop(settings, "resolution_y", text="H")
+
+        box.prop(settings, "fps")
+
+        # Quality
+        layout.separator()
+        box = layout.box()
+        box.label(text="Render Quality", icon='SCENE')
+
+        box.prop(settings, "quality_preset")
+        if settings.quality_preset == 'CUSTOM':
+            box.prop(settings, "samples")
+
+        col = box.column(align=True)
+        col.prop(settings, "use_denoising")
+        col.prop(settings, "use_gpu")
+        col.prop(settings, "use_path_guiding")
+
+        # Camera Level
+        layout.separator()
+        box = layout.box()
+        box.label(text="Camera Level", icon='ORIENTATION_VIEW')
+
+        row = box.row(align=True)
+        row.operator("vr360.check_camera_level", icon='HIDE_OFF')
+        row.operator("vr360.auto_level_camera", icon='ORIENTATION_GIMBAL')
+
+        col = box.column(align=True)
+        col.prop(settings, "auto_level_on_create")
+        col.prop(settings, "level_tolerance")
+
+        # Output & Export
+        layout.separator()
+        box = layout.box()
+        box.label(text="Step 2: Render & Export", icon='RENDER_ANIMATION')
+
+        box.prop(settings, "output_path")
+        box.prop(settings, "output_format")
+
+        if settings.output_format == 'YOUTUBE' or settings.output_format == 'CUSTOM':
+            box.prop(settings, "bitrate")
+
+        col = box.column(align=True)
+        col.prop(settings, "auto_inject_metadata")
+        if settings.auto_inject_metadata:
+            col.prop(settings, "verify_metadata")
+
+        layout.separator()
+        box = layout.box()
+        box.operator("vr360.render_and_export", icon='PLAY', text="Render for YouTube")
+
+        # Advanced settings
+        layout.separator()
+        box = layout.box()
+        box.label(text="Advanced", icon='PREFERENCES')
+        box.prop(settings, "color_space")
+        box.prop(settings, "adaptive_threshold")
+
+
+# Additional subpanel for information
+class VR360_PT_InfoPanel(bpy.types.Panel):
+    """VR360 Information panel"""
+    bl_label = "VR360 Info"
+    bl_idname = "VR360_PT_info_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'VR Production'
+    bl_parent_id = "VR360_PT_main_panel"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.vr360_mono_settings
+
+        box = layout.box()
+        box.label(text="Current Settings:", icon='INFO')
+
+        col = box.column(align=True)
+        col.label(text=f"Resolution: {settings.resolution_x}×{settings.resolution_y}")
+        col.label(text=f"Frame Rate: {settings.fps} fps")
+
+        # Calculate estimated file size
+        if context.scene.frame_end > context.scene.frame_start:
+            frame_count = context.scene.frame_end - context.scene.frame_start + 1
+            duration = frame_count / settings.fps
+            estimated_size = (settings.bitrate * duration) / 8  # MB
+
+            col.separator()
+            col.label(text=f"Duration: {duration:.1f}s ({frame_count} frames)")
+            col.label(text=f"Estimated size: {estimated_size:.1f} MB")
+
+        # VR360 specifications
+        layout.separator()
+        box = layout.box()
+        box.label(text="VR360 Specifications:", icon='CAMERA_DATA')
+
+        col = box.column(align=True)
+        col.label(text="• Monoscopic (2D)")
+        col.label(text="• Equirectangular projection")
+        col.label(text="• 360° horizontal × 180° vertical")
+        col.label(text="• 2:1 aspect ratio recommended")
+
+        # YouTube recommendations
+        layout.separator()
+        box = layout.box()
+        box.label(text="YouTube Recommendations:", icon='URL')
+
+        col = box.column(align=True)
+        col.label(text="• 8K (7680×3840) @ 60fps: Best")
+        col.label(text="• 5K (5120×2560) @ 60fps: Good")
+        col.label(text="• 4K (3840×2160) @ 60fps: Minimum")
+        col.label(text="• H.265 codec, 100-150 Mbps")
+```
+
+---
+
+**Continue to:**
+- [Part 4: Reference & Testing →](./vr360mono-tech-04-reference.mdx)
+
+---
+
+**See also:**
+- [← Part 3: Operators & UI (UX Design)](${camera}-tech-03-operators.mdx) - For refined UX workflows
+
+---
+
+**Status:** Planning - Needs Update to Match Part 3 UX
+**Last Updated:** 2025-12-08

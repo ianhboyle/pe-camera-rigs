@@ -1,0 +1,1031 @@
+---
+title: Isometric Camera - Part 2: Core Implementation
+description: Step-by-step implementation guide with complete code
+status: Planning
+priority: Medium
+---
+
+# Isometric Camera - Part 2: Core Implementation
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Part 1 data structures
+**Last Updated:** 2025-12-08 (Updated to match Part 3 UX)
+
+---
+
+## Overview
+
+This is Part 2 of the Isometric Camera technical specification, covering:
+- Complete function implementations
+- Step-by-step implementation checklists
+- Helper utilities and internal functions
+
+**Note:** This document has been updated to match the **1-click preset workflow** defined in [Part 3: Operators & UI](./isometric-tech-03-operators.mdx). All implementations now support the 7 presets with IsoCam-style instant activation.
+
+See also:
+- [Part 1: Overview & Data Model](./isometric-tech-01-overview.mdx)
+- [Part 3: Operators & UI](./isometric-tech-03-operators.mdx) - **Authoritative UX design**
+- [Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)
+
+---
+
+## Implementation Checklist
+
+### Phase 1: Camera Creation
+- [ ] Implement `create_isometric_camera()`
+- [ ] Implement `set_isometric_angles()`
+- [ ] Implement `update_orthographic_scale()`
+- [ ] Test camera creation with different presets
+- [ ] Verify parent-child hierarchy
+
+### Phase 2: Camera Manipulation
+- [ ] Implement `frame_selection()`
+- [ ] Implement `reset_to_isometric()`
+- [ ] Implement angle calculation helpers
+- [ ] Test framing with various object selections
+- [ ] Verify angle accuracy
+
+### Phase 3: Scene Setup
+- [ ] Implement `add_reference_grid()`
+- [ ] Implement `add_axis_indicators()`
+- [ ] Implement `add_scale_reference()`
+- [ ] Implement `setup_isometric_lighting()`
+- [ ] Test all visual aids
+
+### Phase 4: Render Configuration
+- [ ] Implement `apply_isometric_render_settings()`
+- [ ] Implement `apply_resolution_preset()`
+- [ ] Implement `apply_quality_preset()`
+- [ ] Implement `setup_freestyle()`
+- [ ] Implement `setup_transparent_background()`
+- [ ] Test render settings with different presets
+
+### Phase 5: Integration & Testing
+- [ ] Test complete workflow end-to-end
+- [ ] Verify collection organization
+- [ ] Test with different projection types
+- [ ] Performance testing
+- [ ] Edge case testing
+
+---
+
+## Camera Creation Implementation
+
+### File: `camera_rigs.py`
+
+```python
+import bpy
+import math
+from mathutils import Vector, Euler
+from typing import Tuple, Optional
+
+# Constants - Projection Angles (All 7 presets from Part 3)
+
+# Game & Pixel Art
+GAME_ISOMETRIC_ROTATION_Z = math.radians(45.0)
+GAME_ISOMETRIC_TILT_X = math.radians(26.565)  # 2:1 pixel ratio for stairs
+GAME_ISOMETRIC_ROLL_Y = 0.0
+
+GAME_4TO3_ROTATION_Z = math.radians(45.0)
+GAME_4TO3_TILT_X = math.radians(30.0)  # 4:3 diamond tiles
+GAME_4TO3_ROLL_Y = 0.0
+
+# Technical & CAD
+TRUE_ISOMETRIC_ROTATION_Z = math.radians(45.0)
+TRUE_ISOMETRIC_TILT_X = math.atan(1.0 / math.sqrt(2.0))  # 35.264° - Mathematically correct
+TRUE_ISOMETRIC_ROLL_Y = 0.0
+
+DIMETRIC_ROTATION_Z = math.radians(45.0)
+DIMETRIC_TILT_X = math.radians(30.0)  # Two axes equal
+DIMETRIC_ROLL_Y = 0.0
+
+TRIMETRIC_ROTATION_Z = math.radians(60.0)  # Custom angle
+TRIMETRIC_TILT_X = math.radians(30.0)  # All axes different
+TRIMETRIC_ROLL_Y = 0.0
+
+# Plans & Maps
+MILITARY_ROTATION_Z = math.radians(45.0)  # Can be 0° or 45°
+MILITARY_TILT_X = math.radians(90.0)  # Looking straight down
+MILITARY_ROLL_Y = 0.0
+
+CAVALIER_ROTATION_Z = 0.0  # Straight front
+CAVALIER_TILT_X = 0.0  # No tilt
+CAVALIER_ROLL_Y = math.radians(45.0)  # Depth at 45° angle
+
+# Collections
+COLLECTION_CAMERAS = "Isometric_Cameras"
+COLLECTION_LIGHTING = "Isometric_Lighting"
+COLLECTION_REFERENCE = "Isometric_Reference"
+
+
+def ensure_collection(name: str) -> bpy.types.Collection:
+    """
+    Ensure a collection exists in the scene.
+
+    Args:
+        name: Collection name
+
+    Returns:
+        Collection object (existing or newly created)
+    """
+    if name in bpy.data.collections:
+        return bpy.data.collections[name]
+
+    collection = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(collection)
+    return collection
+
+
+def create_isometric_camera(
+    context: bpy.types.Context,
+    name: str = "IsometricCamera",
+    projection_type: str = 'TRUE_ISOMETRIC',
+    ortho_scale: float = 14.0,
+    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> Tuple[bpy.types.Object, bpy.types.Object]:
+    """
+    Create isometric orthographic camera with parent empty.
+
+    Args:
+        context: Blender context
+        name: Base name for camera and parent empty
+        projection_type: Preset projection type (see get_projection_angles() for all 7 options)
+        ortho_scale: Orthographic camera scale (14.0 = IsoCam standard)
+        location: World location for camera parent
+
+    Returns:
+        Tuple of (parent_empty, camera_object)
+    """
+    # Ensure collection exists
+    collection = ensure_collection(COLLECTION_CAMERAS)
+
+    # Create camera data and object
+    camera_data = bpy.data.cameras.new(name=f"{name}_Data")
+    camera_data.type = 'ORTHO'
+    camera_data.ortho_scale = ortho_scale
+
+    camera_object = bpy.data.objects.new(name=name, object_data=camera_data)
+    collection.objects.link(camera_object)
+
+    # Create parent empty
+    parent_empty = bpy.data.objects.new(name=f"{name}_Parent", object_data=None)
+    parent_empty.empty_display_type = 'PLAIN_AXES'
+    parent_empty.empty_display_size = 2.0
+    parent_empty.location = location
+    collection.objects.link(parent_empty)
+
+    # Parent camera to empty
+    camera_object.parent = parent_empty
+
+    # Position camera relative to parent
+    camera_distance = 15.0
+    camera_height = 10.0
+
+    # Calculate camera local position based on angles
+    rotation_z, tilt_x, roll_y = get_projection_angles(projection_type)
+
+    # Place camera at distance along viewing direction
+    # For isometric, this is offset back and up from parent
+    camera_object.location = (
+        -camera_distance * math.cos(rotation_z) * math.cos(tilt_x),
+        -camera_distance * math.sin(rotation_z) * math.cos(tilt_x),
+        camera_distance * math.sin(tilt_x),
+    )
+
+    # Set camera rotation to look at parent origin
+    set_isometric_angles(camera_object, projection_type, rotation_z, tilt_x, roll_y)
+
+    return parent_empty, camera_object
+
+
+def get_projection_angles(projection_type: str) -> Tuple[float, float, float]:
+    """
+    Get rotation angles for projection type (All 7 presets from Part 3).
+
+    Args:
+        projection_type: Projection preset name
+
+    Returns:
+        Tuple of (rotation_z, tilt_x, roll_y) in radians
+    """
+    # Game & Pixel Art
+    if projection_type == 'GAME_ISOMETRIC':
+        return (GAME_ISOMETRIC_ROTATION_Z, GAME_ISOMETRIC_TILT_X, GAME_ISOMETRIC_ROLL_Y)
+    elif projection_type == 'GAME_4TO3':
+        return (GAME_4TO3_ROTATION_Z, GAME_4TO3_TILT_X, GAME_4TO3_ROLL_Y)
+
+    # Technical & CAD
+    elif projection_type == 'TRUE_ISOMETRIC':
+        return (TRUE_ISOMETRIC_ROTATION_Z, TRUE_ISOMETRIC_TILT_X, TRUE_ISOMETRIC_ROLL_Y)
+    elif projection_type == 'DIMETRIC':
+        return (DIMETRIC_ROTATION_Z, DIMETRIC_TILT_X, DIMETRIC_ROLL_Y)
+    elif projection_type == 'TRIMETRIC':
+        return (TRIMETRIC_ROTATION_Z, TRIMETRIC_TILT_X, TRIMETRIC_ROLL_Y)
+
+    # Plans & Maps
+    elif projection_type == 'MILITARY':
+        return (MILITARY_ROTATION_Z, MILITARY_TILT_X, MILITARY_ROLL_Y)
+    elif projection_type == 'CAVALIER':
+        return (CAVALIER_ROTATION_Z, CAVALIER_TILT_X, CAVALIER_ROLL_Y)
+
+    # Custom or unknown - default to True Isometric
+    else:
+        return (TRUE_ISOMETRIC_ROTATION_Z, TRUE_ISOMETRIC_TILT_X, TRUE_ISOMETRIC_ROLL_Y)
+
+
+def set_isometric_angles(
+    camera: bpy.types.Object,
+    projection_type: str = 'ISOMETRIC',
+    rotation_z: Optional[float] = None,
+    tilt_x: Optional[float] = None,
+    roll_y: Optional[float] = None,
+) -> Tuple[float, float, float]:
+    """
+    Set camera rotation to isometric or custom angles.
+
+    Args:
+        camera: Camera object to rotate
+        projection_type: Preset projection type
+        rotation_z: Override Z rotation (radians), None uses preset
+        tilt_x: Override X tilt (radians), None uses preset
+        roll_y: Override Y roll (radians), None uses preset
+
+    Returns:
+        Tuple of (rotation_z, tilt_x, roll_y) in radians
+    """
+    # Get preset angles if not provided
+    if rotation_z is None or tilt_x is None or roll_y is None:
+        preset_z, preset_x, preset_y = get_projection_angles(projection_type)
+        rotation_z = rotation_z if rotation_z is not None else preset_z
+        tilt_x = tilt_x if tilt_x is not None else preset_x
+        roll_y = roll_y if roll_y is not None else preset_y
+
+    # Apply rotation
+    # Isometric uses XYZ Euler order: X (tilt), Y (roll), Z (rotation)
+    camera.rotation_euler = Euler((tilt_x, roll_y, rotation_z), 'XYZ')
+
+    return (rotation_z, tilt_x, roll_y)
+
+
+def update_orthographic_scale(
+    camera: bpy.types.Object,
+    scale: float,
+) -> None:
+    """
+    Update camera orthographic scale (zoom level).
+
+    Args:
+        camera: Camera object
+        scale: Orthographic scale value (higher = zoomed out)
+    """
+    if camera.type != 'CAMERA':
+        raise ValueError(f"Object '{camera.name}' is not a camera")
+
+    if camera.data.type != 'ORTHO':
+        raise ValueError(f"Camera '{camera.name}' is not orthographic")
+
+    camera.data.ortho_scale = scale
+
+
+def frame_selection(
+    context: bpy.types.Context,
+    camera: bpy.types.Object,
+    padding: float = 1.2,
+) -> float:
+    """
+    Auto-fit camera to frame selected objects.
+
+    Args:
+        context: Blender context
+        camera: Camera object to adjust
+        padding: Padding multiplier (1.0 = exact fit, 1.2 = 20% padding)
+
+    Returns:
+        New orthographic scale value
+    """
+    if not context.selected_objects:
+        raise ValueError("No objects selected")
+
+    if camera.type != 'CAMERA' or camera.data.type != 'ORTHO':
+        raise ValueError("Camera must be orthographic")
+
+    # Calculate bounding box of all selected objects
+    min_co = Vector((float('inf'), float('inf'), float('inf')))
+    max_co = Vector((float('-inf'), float('-inf'), float('-inf')))
+
+    for obj in context.selected_objects:
+        # Get object bounding box in world space
+        bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+
+        for corner in bbox_corners:
+            min_co.x = min(min_co.x, corner.x)
+            min_co.y = min(min_co.y, corner.y)
+            min_co.z = min(min_co.z, corner.z)
+            max_co.x = max(max_co.x, corner.x)
+            max_co.y = max(max_co.y, corner.y)
+            max_co.z = max(max_co.z, corner.z)
+
+    # Calculate size of bounding box
+    size = max_co - min_co
+
+    # For orthographic camera, scale should fit the maximum dimension
+    # Account for camera rotation to calculate proper visible dimension
+    max_dimension = max(size.x, size.y, size.z)
+
+    # Calculate orthographic scale with padding
+    new_scale = max_dimension * padding
+
+    # Apply to camera
+    camera.data.ortho_scale = new_scale
+
+    # Optionally move camera parent to center of selection
+    if camera.parent:
+        center = (min_co + max_co) / 2.0
+        camera.parent.location = center
+
+    return new_scale
+
+
+def reset_to_isometric(camera: bpy.types.Object) -> None:
+    """
+    Reset camera to standard isometric angles.
+
+    Args:
+        camera: Camera object to reset
+    """
+    set_isometric_angles(camera, 'ISOMETRIC')
+```
+
+---
+
+## Scene Setup Implementation
+
+### File: `scene_setup.py`
+
+```python
+import bpy
+import math
+from mathutils import Vector
+from typing import List, Tuple
+
+COLLECTION_REFERENCE = "Isometric_Reference"
+COLLECTION_LIGHTING = "Isometric_Lighting"
+
+
+def ensure_collection(name: str) -> bpy.types.Collection:
+    """Ensure a collection exists in the scene."""
+    if name in bpy.data.collections:
+        return bpy.data.collections[name]
+
+    collection = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(collection)
+    return collection
+
+
+def add_reference_grid(
+    context: bpy.types.Context,
+    size: float = 20.0,
+    subdivisions: int = 10,
+    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    """
+    Add reference grid plane for alignment.
+
+    Args:
+        context: Blender context
+        size: Grid size in Blender units
+        subdivisions: Number of grid subdivisions
+        location: Grid center location
+
+    Returns:
+        Grid plane object
+    """
+    collection = ensure_collection(COLLECTION_REFERENCE)
+
+    # Create plane mesh
+    bpy.ops.mesh.primitive_plane_add(size=size, location=location)
+    grid_object = context.active_object
+    grid_object.name = "IsometricGrid"
+
+    # Move to reference collection
+    for coll in grid_object.users_collection:
+        coll.objects.unlink(grid_object)
+    collection.objects.link(grid_object)
+
+    # Add subdivision for grid lines
+    subdiv_mod = grid_object.modifiers.new(name="Subdivision", type='SUBSURF')
+    subdiv_mod.levels = 0
+    subdiv_mod.render_levels = 0
+    subdiv_mod.subdivision_type = 'SIMPLE'
+
+    # Create wireframe material
+    mat = bpy.data.materials.new(name="GridMaterial")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    nodes.clear()
+
+    # Wireframe node
+    wireframe_node = nodes.new(type='ShaderNodeWireframe')
+    wireframe_node.use_pixel_size = True
+    wireframe_node.inputs[0].default_value = 1.0  # Thickness
+
+    # Emission shader for visibility
+    emission_node = nodes.new(type='ShaderNodeEmission')
+    emission_node.inputs[0].default_value = (0.3, 0.3, 0.3, 1.0)  # Gray
+    emission_node.inputs[1].default_value = 0.5  # Strength
+
+    # Material output
+    output_node = nodes.new(type='ShaderNodeOutputMaterial')
+
+    # Link nodes
+    links = mat.node_tree.links
+    links.new(wireframe_node.outputs[0], emission_node.inputs[1])
+    links.new(emission_node.outputs[0], output_node.inputs[0])
+
+    # Assign material
+    if grid_object.data.materials:
+        grid_object.data.materials[0] = mat
+    else:
+        grid_object.data.materials.append(mat)
+
+    # Set display properties
+    grid_object.display_type = 'WIRE'
+    grid_object.hide_render = True
+
+    return grid_object
+
+
+def add_axis_indicators(
+    context: bpy.types.Context,
+    length: float = 5.0,
+    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> List[bpy.types.Object]:
+    """
+    Add X, Y, Z axis indicator arrows.
+
+    Args:
+        context: Blender context
+        length: Arrow length
+        location: Origin point for axes
+
+    Returns:
+        List of [x_arrow, y_arrow, z_arrow] objects
+    """
+    collection = ensure_collection(COLLECTION_REFERENCE)
+    arrows = []
+
+    # Axis definitions: (name, direction, color)
+    axes = [
+        ('X', Vector((1, 0, 0)), (1.0, 0.0, 0.0, 1.0)),  # Red
+        ('Y', Vector((0, 1, 0)), (0.0, 1.0, 0.0, 1.0)),  # Green
+        ('Z', Vector((0, 0, 1)), (0.0, 0.0, 1.0, 1.0)),  # Blue
+    ]
+
+    for axis_name, direction, color in axes:
+        # Create arrow with cone primitive
+        bpy.ops.mesh.primitive_cone_add(
+            radius1=0.2,
+            radius2=0.0,
+            depth=1.0,
+            location=location
+        )
+        arrow = context.active_object
+        arrow.name = f"Axis_{axis_name}"
+
+        # Move to reference collection
+        for coll in arrow.users_collection:
+            coll.objects.unlink(arrow)
+        collection.objects.link(arrow)
+
+        # Scale and position along axis
+        arrow.scale = (1, 1, length)
+        arrow.location = Vector(location) + direction * (length / 2.0)
+
+        # Rotate to point along axis
+        if axis_name == 'X':
+            arrow.rotation_euler = (0, math.radians(90), 0)
+        elif axis_name == 'Y':
+            arrow.rotation_euler = (math.radians(-90), 0, 0)
+        # Z axis is already correct (pointing up)
+
+        # Create colored material
+        mat = bpy.data.materials.new(name=f"Axis_{axis_name}_Material")
+        mat.use_nodes = True
+        nodes = mat.node_tree.nodes
+
+        bsdf = nodes.get("Principled BSDF")
+        if bsdf:
+            bsdf.inputs['Base Color'].default_value = color
+            bsdf.inputs['Emission'].default_value = color
+            bsdf.inputs['Emission Strength'].default_value = 0.5
+
+        # Assign material
+        if arrow.data.materials:
+            arrow.data.materials[0] = mat
+        else:
+            arrow.data.materials.append(mat)
+
+        arrow.hide_render = True
+        arrows.append(arrow)
+
+    return arrows
+
+
+def add_scale_reference(
+    context: bpy.types.Context,
+    floor_size: float = 10.0,
+    cube_size: float = 5.0,
+    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> Tuple[bpy.types.Object, bpy.types.Object]:
+    """
+    Add isometric scale reference (grid floor + centered cube).
+
+    Args:
+        context: Blender context
+        floor_size: Size of floor plane (default 10x10)
+        cube_size: Size of reference cube (default 5x5x5)
+        location: Center location
+
+    Returns:
+        Tuple of (floor_plane, reference_cube)
+    """
+    collection = ensure_collection(COLLECTION_REFERENCE)
+
+    # Create 10x10 floor plane
+    bpy.ops.mesh.primitive_plane_add(
+        size=floor_size,
+        location=(location[0], location[1], location[2])
+    )
+    floor = context.active_object
+    floor.name = "Reference_Floor"
+
+    # Move to collection
+    for coll in floor.users_collection:
+        coll.objects.unlink(floor)
+    collection.objects.link(floor)
+
+    # Add grid material
+    mat = bpy.data.materials.new(name="Grid_Material")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    # Clear default nodes
+    nodes.clear()
+
+    # Create checker texture for grid
+    tex_coord = nodes.new(type='ShaderNodeTexCoord')
+    mapping = nodes.new(type='ShaderNodeMapping')
+    checker = nodes.new(type='ShaderNodeTexChecker')
+    bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
+    output = nodes.new(type='ShaderNodeOutputMaterial')
+
+    # Set checker scale (10 divisions)
+    mapping.inputs['Scale'].default_value = (10, 10, 1)
+    checker.inputs['Scale'].default_value = 1.0
+    checker.inputs['Color1'].default_value = (0.8, 0.8, 0.8, 1.0)
+    checker.inputs['Color2'].default_value = (0.6, 0.6, 0.6, 1.0)
+
+    # Connect nodes
+    links.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    links.new(mapping.outputs['Vector'], checker.inputs['Vector'])
+    links.new(checker.outputs['Color'], bsdf.inputs['Base Color'])
+    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    floor.data.materials.append(mat)
+
+    # Create 5x5x5 cube in center
+    bpy.ops.mesh.primitive_cube_add(
+        size=cube_size,
+        location=(location[0], location[1], location[2] + cube_size/2)
+    )
+    cube = context.active_object
+    cube.name = "Reference_Cube"
+
+    # Move to collection
+    for coll in cube.users_collection:
+        coll.objects.unlink(cube)
+    collection.objects.link(cube)
+
+    # Add simple material to cube
+    cube_mat = bpy.data.materials.new(name="Cube_Material")
+    cube_mat.use_nodes = True
+    cube_bsdf = cube_mat.node_tree.nodes.get("Principled BSDF")
+    if cube_bsdf:
+        cube_bsdf.inputs['Base Color'].default_value = (0.3, 0.5, 0.8, 1.0)  # Blue
+        cube_bsdf.inputs['Roughness'].default_value = 0.5
+    cube.data.materials.append(cube_mat)
+
+    return floor, cube
+
+
+def setup_isometric_lighting(
+    context: bpy.types.Context,
+    preset: str = 'TECHNICAL',
+) -> List[bpy.types.Object]:
+    """
+    Add lighting setup for isometric rendering.
+
+    Presets:
+        TECHNICAL: Flat shadowless overhead (most common for isometric)
+        SOFT: Even diffused from multiple angles
+        STUDIO: Professional 4-point setup
+        DRAMATIC: High contrast cinematic
+        PRODUCT: Clean 3-point for product viz
+        OUTDOOR: Sun + sky simulation
+        BACKLIGHT: Rim/edge focus
+    """
+    collection = ensure_collection(COLLECTION_LIGHTING)
+    lights = []
+
+    if preset == 'TECHNICAL':
+        # Flat shadowless: Single large overhead (most common for isometric)
+        bpy.ops.object.light_add(type='AREA', location=(0, 0, 20))
+        light = context.active_object
+        light.name = "Overhead_Technical"
+        light.data.energy = 500
+        light.data.size = 20
+        lights.append(light)
+
+    elif preset == 'SOFT':
+        # Even multi-point diffused
+        positions = [
+            (8, -8, 12),   # Front-right
+            (-8, -8, 12),  # Front-left
+            (0, 8, 10),    # Back-center
+        ]
+        for i, pos in enumerate(positions):
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"Soft_{i+1}"
+            light.data.energy = 180
+            light.data.size = 10
+            lights.append(light)
+
+    elif preset == 'STUDIO':
+        # Professional 4-point: Key, Fill, Rim, Background
+        setup = [
+            ("Key", (8, -8, 12), 350, 8),
+            ("Fill", (-6, -6, 8), 180, 12),
+            ("Rim", (0, 10, 12), 220, 6),
+            ("Background", (0, 0, -5), 100, 15),
+        ]
+        for name, pos, energy, size in setup:
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"{name}_Studio"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    elif preset == 'DRAMATIC':
+        # High contrast: Strong spot + minimal fill
+        bpy.ops.object.light_add(type='SPOT', location=(10, -10, 15))
+        key = context.active_object
+        key.name = "Key_Dramatic"
+        key.data.energy = 1000
+        key.data.spot_size = math.radians(60)
+        lights.append(key)
+
+        bpy.ops.object.light_add(type='AREA', location=(-6, -4, 6))
+        fill = context.active_object
+        fill.name = "Fill_Dramatic"
+        fill.data.energy = 80
+        fill.data.size = 15
+        lights.append(fill)
+
+    elif preset == 'PRODUCT':
+        # 3-point lighting: Key 100%, Fill 60%, Rim 70%
+        setup = [
+            ("Key", (6, -6, 10), 300, 8),
+            ("Fill", (-4, -4, 6), 180, 12),
+            ("Rim", (0, 8, 10), 210, 6),
+        ]
+        for name, pos, energy, size in setup:
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"{name}_Product"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    elif preset == 'OUTDOOR':
+        # Sun + sky simulation
+        bpy.ops.object.light_add(type='SUN', location=(10, -10, 15))
+        sun = context.active_object
+        sun.name = "Sun_Outdoor"
+        sun.data.energy = 5.0
+        sun.data.angle = math.radians(0.545)
+        sun.rotation_euler = (math.radians(45), 0, math.radians(-45))
+        lights.append(sun)
+
+        # Sky bounce
+        bpy.ops.object.light_add(type='AREA', location=(0, 0, 5))
+        sky_fill = context.active_object
+        sky_fill.name = "Sky_Bounce"
+        sky_fill.data.energy = 80
+        sky_fill.data.size = 20
+        sky_fill.data.color = (0.7, 0.85, 1.0)
+        lights.append(sky_fill)
+
+    elif preset == 'BACKLIGHT':
+        # Rim/edge focus: 2 rim + minimal front fill
+        setup = [
+            ("Rim_Main", (6, 8, 12), 300, 6),
+            ("Rim_Secondary", (-6, 8, 12), 200, 6),
+            ("Fill_Minimal", (0, -10, 4), 50, 15),
+        ]
+        for name, pos, energy, size in setup:
+            bpy.ops.object.light_add(type='AREA', location=pos)
+            light = context.active_object
+            light.name = f"{name}_Backlight"
+            light.data.energy = energy
+            light.data.size = size
+            lights.append(light)
+
+    # Move all lights to lighting collection
+    for light in lights:
+        for coll in light.users_collection:
+            coll.objects.unlink(light)
+        collection.objects.link(light)
+
+    return lights
+```
+
+---
+
+## Render Settings Implementation
+
+### File: `render_utils.py`
+
+```python
+import bpy
+from typing import Tuple
+
+# Resolution presets
+RESOLUTION_PRESETS = {
+    '1K_SQUARE': (1024, 1024),
+    '2K_SQUARE': (2048, 2048),
+    '4K_SQUARE': (4096, 4096),
+    'HD': (1920, 1080),
+    '4K': (3840, 2160),
+}
+
+# Quality presets
+QUALITY_PRESETS = {
+    'DRAFT': 64,
+    'PREVIEW': 128,
+    'FINAL': 256,
+    'ULTRA': 512,
+}
+
+
+def apply_isometric_render_settings(
+    scene: bpy.types.Scene,
+    settings: 'IsometricSettings',
+) -> None:
+    """
+    Apply isometric-optimized render settings.
+
+    Args:
+        scene: Scene to configure
+        settings: IsometricSettings property group
+    """
+    # Apply resolution
+    if settings.resolution_preset != 'CUSTOM':
+        apply_resolution_preset(scene, settings.resolution_preset)
+    else:
+        scene.render.resolution_x = settings.resolution_x
+        scene.render.resolution_y = settings.resolution_y
+
+    # Apply quality
+    if settings.render_quality != 'CUSTOM':
+        apply_quality_preset(scene, settings.render_quality)
+    else:
+        scene.cycles.samples = settings.render_samples
+
+    # Transparent background
+    setup_transparent_background(scene, settings.use_transparent)
+
+    # Freestyle lines
+    if settings.use_freestyle:
+        setup_freestyle(scene, settings.freestyle_thickness)
+
+    # Set render engine to Cycles (better for isometric)
+    scene.render.engine = 'CYCLES'
+
+    # Disable motion blur and depth of field (not needed for isometric)
+    scene.render.use_motion_blur = False
+    scene.cycles.use_denoising = False  # Keep edges sharp
+
+    # Set output format
+    if settings.use_transparent:
+        scene.render.image_settings.file_format = 'PNG'
+        scene.render.image_settings.color_mode = 'RGBA'
+    else:
+        scene.render.image_settings.file_format = 'PNG'
+        scene.render.image_settings.color_mode = 'RGB'
+
+
+def apply_resolution_preset(
+    scene: bpy.types.Scene,
+    preset: str,
+) -> Tuple[int, int]:
+    """
+    Apply resolution preset to scene.
+
+    Args:
+        scene: Scene to configure
+        preset: Resolution preset name
+
+    Returns:
+        Tuple of (width, height) in pixels
+    """
+    if preset not in RESOLUTION_PRESETS:
+        raise ValueError(f"Unknown resolution preset: {preset}")
+
+    width, height = RESOLUTION_PRESETS[preset]
+    scene.render.resolution_x = width
+    scene.render.resolution_y = height
+    scene.render.resolution_percentage = 100
+
+    return (width, height)
+
+
+def apply_quality_preset(
+    scene: bpy.types.Scene,
+    preset: str,
+) -> int:
+    """
+    Apply render quality preset.
+
+    Args:
+        scene: Scene to configure
+        preset: Quality preset name
+
+    Returns:
+        Number of samples applied
+    """
+    if preset not in QUALITY_PRESETS:
+        raise ValueError(f"Unknown quality preset: {preset}")
+
+    samples = QUALITY_PRESETS[preset]
+    scene.cycles.samples = samples
+
+    return samples
+
+
+def setup_freestyle(
+    scene: bpy.types.Scene,
+    thickness: float = 1.5,
+    color: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> None:
+    """
+    Configure Freestyle line rendering for technical drawings.
+
+    Args:
+        scene: Scene to configure
+        thickness: Line thickness in pixels
+        color: Line RGB color (0.0-1.0)
+    """
+    # Enable Freestyle in view layer
+    view_layer = scene.view_layers[0]
+    view_layer.use_freestyle = True
+
+    # Get or create freestyle settings
+    freestyle_settings = view_layer.freestyle_settings
+    freestyle_settings.mode = 'EDITOR'
+
+    # Clear existing linesets
+    while freestyle_settings.linesets:
+        freestyle_settings.linesets.remove(freestyle_settings.linesets[0])
+
+    # Create new lineset
+    lineset = freestyle_settings.linesets.new(name="IsometricLines")
+    lineset.select_silhouette = True
+    lineset.select_border = True
+    lineset.select_crease = True
+    lineset.select_edge_mark = True
+
+    # Configure line style
+    linestyle = bpy.data.linestyles.new(name="IsometricLineStyle")
+    lineset.linestyle = linestyle
+
+    # Set line color
+    linestyle.color = (*color, 1.0)
+
+    # Set line thickness
+    linestyle.thickness = thickness
+    linestyle.thickness_position = 'CENTER'
+
+
+def setup_transparent_background(
+    scene: bpy.types.Scene,
+    enabled: bool = True,
+) -> None:
+    """
+    Configure transparent background rendering.
+
+    Args:
+        scene: Scene to configure
+        enabled: Enable or disable transparency
+    """
+    scene.render.film_transparent = enabled
+
+    if enabled:
+        # Ensure output format supports alpha
+        if scene.render.image_settings.file_format not in ['PNG', 'OPEN_EXR', 'OPEN_EXR_MULTILAYER']:
+            scene.render.image_settings.file_format = 'PNG'
+        scene.render.image_settings.color_mode = 'RGBA'
+    else:
+        scene.render.image_settings.color_mode = 'RGB'
+```
+
+---
+
+## Helper Utilities
+
+### File: `camera_rigs.py` (Additional helpers)
+
+```python
+def calculate_bounding_box_size(objects: List[bpy.types.Object]) -> Vector:
+    """
+    Calculate combined bounding box size for multiple objects.
+
+    Args:
+        objects: List of objects to measure
+
+    Returns:
+        Vector representing bounding box dimensions
+    """
+    if not objects:
+        return Vector((0, 0, 0))
+
+    min_co = Vector((float('inf'), float('inf'), float('inf')))
+    max_co = Vector((float('-inf'), float('-inf'), float('-inf')))
+
+    for obj in objects:
+        bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+        for corner in bbox_corners:
+            min_co.x = min(min_co.x, corner.x)
+            min_co.y = min(min_co.y, corner.y)
+            min_co.z = min(min_co.z, corner.z)
+            max_co.x = max(max_co.x, corner.x)
+            max_co.y = max(max_co.y, corner.y)
+            max_co.z = max(max_co.z, corner.z)
+
+    return max_co - min_co
+
+
+def point_camera_at_target(
+    camera: bpy.types.Object,
+    target: Vector,
+) -> None:
+    """
+    Point camera at target location.
+
+    Args:
+        camera: Camera object
+        target: Target world position
+    """
+    direction = target - camera.location
+    rot_quat = direction.to_track_quat('-Z', 'Y')
+    camera.rotation_euler = rot_quat.to_euler()
+```
+
+---
+
+## Integration Notes
+
+### Collection Organization
+All created objects are automatically organized into collections:
+- `Isometric_Cameras` - Camera rigs
+- `Isometric_Lighting` - Light objects
+- `Isometric_Reference` - Visual aids (grid, axes, scale)
+
+### Error Handling
+All functions should validate inputs and raise appropriate exceptions:
+- `ValueError` for invalid parameters
+- `TypeError` for wrong object types
+- Include descriptive error messages
+
+### Performance Considerations
+- Isometric rendering is typically faster than perspective (simpler calculations)
+- Lower sample counts are acceptable (128-256 samples)
+- Disable unnecessary effects (motion blur, DOF, denoising)
+- Use Cycles for quality, EEVEE for speed
+
+---
+
+## Next Steps
+
+Continue to:
+- **[Part 3: Operators & UI](./isometric-tech-03-operators.mdx)** - Blender operators and UI panels (1-click preset workflow)
+- **[Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)** - API reference and test cases
+- **[Part 5: Python Implementation Code](./isometric-tech-05-code.mdx)** - Copy-paste ready operator code
+
+---
+
+**Status:** Planning - Updated for Part 3 UX (2025-12-08)
+**Last Updated:** 2025-12-08

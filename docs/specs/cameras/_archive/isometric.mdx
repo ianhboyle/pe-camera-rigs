@@ -1,0 +1,481 @@
+---
+title: Isometric Camera
+description: True isometric projection camera for technical visualization and game art
+status: Planning
+priority: Medium
+---
+
+# Isometric Camera
+
+**Status:** Planning
+**Priority:** Medium
+**Type:** Camera Rig
+**Target Use:** Technical drawings, architectural visualization, game development, UI design
+
+---
+
+## Overview
+
+The Isometric Camera creates a true parallel projection camera with precise isometric angles for technical visualization, architectural drawings, and game art. It eliminates perspective distortion, making it perfect for technical documentation, strategy games, and pixel art.
+
+### What is Isometric Projection?
+
+Isometric projection is a method of visually representing three-dimensional objects in two dimensions where the three coordinate axes appear equally foreshortened. The camera views the scene at 45° horizontal rotation and 35.264° (arctan 1/√2) vertical angle, creating the classic isometric look.
+
+**Key Benefits:**
+- **No perspective distortion** - Parallel lines remain parallel
+- **True measurements** - Objects maintain scale regardless of distance
+- **Predictable rendering** - Consistent look across all objects
+- **Industry standard** - Matches CAD and technical drawing conventions
+- **Game-ready** - Perfect for isometric games and pixel art
+- **Clear visualization** - Ideal for complex technical assemblies
+
+---
+
+## Use Cases
+
+### Architects & Engineers
+- **Technical drawings** - Architectural plans and sections
+- **Mechanical assemblies** - Product design visualization
+- **Interior layouts** - Room and furniture arrangements
+- **Site plans** - Building and landscape layouts
+- **Construction documentation** - Assembly instructions
+
+### Game Developers
+- **Isometric games** - Strategy, RPG, simulation games
+- **Tile-based worlds** - Environment and level design
+- **Character sprites** - Consistent character views
+- **UI elements** - Icons and interface graphics
+- **Pixel art** - Retro-style game assets
+
+### Technical Illustrators
+- **Product documentation** - Assembly manuals
+- **Infographics** - Data visualization and diagrams
+- **Educational materials** - How-to guides and tutorials
+- **Patent drawings** - Technical patent illustrations
+- **Engineering schematics** - System diagrams
+
+### 3D Artists & Designers
+- **Portfolio presentations** - Clean showcase of 3D models
+- **UI/UX mockups** - Interface element design
+- **Icon design** - Application and game icons
+- **Asset libraries** - Consistent asset preview renders
+- **Concept art** - Technical concept visualization
+
+---
+
+## Key Features
+
+### True Isometric Projection
+- **Parallel orthographic camera** - No perspective distortion
+- **Standard isometric angles** - 45° rotation, 35.264° tilt
+- **Customizable angles** - Dimetric and trimetric support
+- **Scale preservation** - Objects maintain size regardless of depth
+
+### Multiple Projection Modes
+- **Isometric (1:1:1)** - Equal foreshortening on all axes
+- **Dimetric (1:1:2)** - Two axes equal, one different
+- **Trimetric (1:2:3)** - All three axes different
+- **Custom angles** - User-defined rotation and tilt
+
+### Orthographic Scale Control
+- **Orthographic scale slider** - Zoom control (0.1 to 100 units)
+- **Auto-fit to selection** - Frame selected objects perfectly
+- **Grid snapping** - Align to world grid for technical accuracy
+- **Preset scales** - Common technical drawing scales
+
+### Render Optimization
+- **Sharp edges** - Perfect for technical drawings
+- **Optional line rendering** - Freestyle line art overlay
+- **Transparent background** - Clean exports for documentation
+- **High-resolution support** - 4K, 8K technical renders
+- **Anti-aliasing control** - Balance between sharpness and quality
+
+### Scene Setup Integration
+- **Reference grid floor** - 10×10 checker grid for alignment
+- **Reference cube** - 5×5×5 centered cube for scale
+- **Axis indicators** - X, Y, Z colored arrows
+- **Lighting presets** - Technical lighting setups
+- **Material presets** - Clean, professional materials
+
+---
+
+## Workflow
+
+### Quick Start (Single Step)
+
+**Create Isometric Camera**
+   - Click "Add Isometric Camera" in the VR Production Toolkit panel
+   - Camera appears with standard isometric angles (45° pan, 35.264° tilt)
+   - Positioned at origin with orthographic projection
+   - Scene includes reference grid and lighting
+   - Ready to render!
+
+### Detailed Workflow
+
+1. **Add Camera & Scene**
+   - Add isometric camera with one click
+   - Camera automatically positioned with correct angles
+   - Optional reference grid and axis indicators added
+   - Lighting setup for clear technical rendering
+
+2. **Position & Frame**
+   - Move camera parent empty to desired view position
+   - Use "Frame Selection" to auto-fit objects
+   - Adjust orthographic scale for zoom level
+   - Optional: snap to grid for precise positioning
+
+3. **Customize Projection**
+   - Choose projection type (isometric, dimetric, trimetric)
+   - Adjust rotation and tilt angles if needed
+   - Set orthographic scale for proper framing
+   - Enable grid overlay if desired
+
+4. **Render Settings**
+   - Resolution preset or custom size
+   - Optional Freestyle line rendering
+   - Transparent background option
+   - Anti-aliasing quality settings
+
+5. **Render & Export**
+   - Render single frame or animation
+   - Export as PNG (transparency), JPEG, or EXR
+   - Optional: render with line art overlay
+   - Use in technical documentation or games
+
+---
+
+## Projection Types
+
+### Isometric (True Isometric)
+**Angles:** 45° rotation, 35.264° tilt
+**Scale ratio:** 1:1:1 (all axes equal)
+**Use case:** Standard technical drawings, most common
+**Appearance:** All three axes equally foreshortened
+
+### Dimetric
+**Angles:** 45° rotation, 30° tilt (customizable)
+**Scale ratio:** 1:1:2 (two axes equal)
+**Use case:** Video games, less steep than isometric
+**Appearance:** Two axes equal, one different
+
+### Trimetric
+**Angles:** Custom rotation and tilt
+**Scale ratio:** 1:2:3 (all axes different)
+**Use case:** Specialized technical visualization
+**Appearance:** All three axes differently foreshortened
+
+### Military Projection (Plan Oblique)
+**Angles:** 0° tilt (top-down), 45° rotation
+**Scale ratio:** Special case
+**Use case:** Maps, site plans, floor layouts
+**Appearance:** Top view with depth indication
+
+---
+
+## Technical Specifications
+
+### Camera Settings
+- **Type:** Orthographic (no perspective)
+- **Default orthographic scale:** 10.0 units
+- **Rotation:** 45° on Z-axis (pan)
+- **Tilt:** 35.264° on X-axis (arctan 1/√2)
+- **Position:** Adjustable, typically above/behind subject
+
+### Resolution Presets
+- **1K Square** - 1024×1024 (game assets, icons)
+- **2K Square** - 2048×2048 (high-quality icons)
+- **4K Square** - 4096×4096 (print-ready icons)
+- **HD Widescreen** - 1920×1080 (presentation)
+- **4K Widescreen** - 3840×2160 (high-res documentation)
+- **Custom** - User-defined resolution
+
+### Render Options
+- **Sampling:** 128-512 samples (lower for technical work)
+- **Denoising:** Optional (usually off for sharp edges)
+- **Freestyle lines:** Optional line art overlay
+- **Transparent background:** Optional alpha channel
+- **File format:** PNG, JPEG, OpenEXR, TIFF
+
+---
+
+## Best Practices
+
+### For Technical Drawings
+1. **Use exact angles** - Stick to 45°/35.264° for true isometric
+2. **Disable denoising** - Keep edges sharp
+3. **Use flat lighting** - Avoid dramatic shadows
+4. **Enable Freestyle** - Add technical line art
+5. **Render high resolution** - 4K or higher for print
+
+### For Game Art
+1. **Match game projection** - Use same angles as game engine
+2. **Consider dimetric** - Often better for games than true isometric
+3. **Use consistent scale** - Same orthographic scale for all assets
+4. **Transparent background** - Easy integration into game engine
+5. **Power-of-two resolutions** - 1024, 2048, 4096 for game assets
+
+### For Architectural Viz
+1. **Add reference grid** - Shows scale and alignment
+2. **Use context objects** - Add people/furniture for scale
+3. **Layer multiple views** - Combine isometric with plans/elevations
+4. **Label elements** - Use text objects or post-process
+5. **Consistent materials** - Professional, clean material setup
+
+### For Pixel Art
+1. **Low resolution** - 512×512 or lower
+2. **No anti-aliasing** - Sharp pixel edges
+3. **Indexed color** - Limited color palette
+4. **Consistent lighting** - Same setup for all assets
+5. **Grid alignment** - Snap to pixel grid
+
+---
+
+## Presets
+
+### Technical Drawing
+- **Orthographic scale:** 5.0
+- **Lighting:** Flat, shadowless
+- **Freestyle:** Enabled with thin lines
+- **Background:** White or transparent
+- **Samples:** 128 (speed priority)
+
+### Game Asset
+- **Orthographic scale:** 8.0
+- **Lighting:** Subtle directional from top-left
+- **Freestyle:** Disabled
+- **Background:** Transparent
+- **Samples:** 256 (quality/speed balance)
+
+### Architectural
+- **Orthographic scale:** 15.0
+- **Lighting:** Three-point with soft shadows
+- **Freestyle:** Optional outlines
+- **Background:** Neutral gray or white
+- **Samples:** 512 (quality priority)
+
+### Icon/UI
+- **Orthographic scale:** 3.0
+- **Lighting:** Bright, rim lighting
+- **Freestyle:** Disabled or subtle
+- **Background:** Transparent
+- **Samples:** 512 (high quality)
+
+---
+
+## Camera Controls
+
+### Position Controls
+- **Parent empty** - Move entire rig with one object
+- **Height adjustment** - Raise/lower view position
+- **Distance control** - Move closer/farther from subject
+- **Grid snapping** - Snap to world grid for precision
+
+### Angle Controls
+- **Rotation (Z-axis)** - Horizontal rotation (default 45°)
+- **Tilt (X-axis)** - Vertical angle (default 35.264°)
+- **Roll (Y-axis)** - Camera roll (usually 0°)
+- **Reset to isometric** - One-click return to standard angles
+
+### Framing Controls
+- **Orthographic scale** - Zoom in/out (like focal length in ortho)
+- **Frame selection** - Auto-fit selected objects
+- **Frame all** - Fit entire scene
+- **Custom scale** - Numerical scale input
+
+### Visual Aids
+- **Show reference** - 10×10 grid floor + 5×5×5 cube
+- **Show axes** - X, Y, Z colored arrows
+- **Show camera frustum** - Orthographic bounds
+
+---
+
+## Common Angles Reference
+
+### Standard Isometric
+```
+Rotation (Z): 45°
+Tilt (X): 35.264° (exact: arctan(1/√2))
+Roll (Y): 0°
+```
+
+### Video Game Isometric
+```
+Rotation (Z): 45°
+Tilt (X): 30°
+Roll (Y): 0°
+```
+
+### Cabinet Projection
+```
+Rotation (Z): 45°
+Tilt (X): 0° (side view)
+Roll (Y): 0°
+```
+
+### Dimetric (2:1)
+```
+Rotation (Z): 45°
+Tilt (X): 30°
+Roll (Y): 0°
+```
+
+### Military Projection
+```
+Rotation (Z): 45° (or 0° for straight-on)
+Tilt (X): 0° (top-down)
+Roll (Y): 0°
+```
+
+---
+
+## Tips & Tricks
+
+### Perfect Alignment
+- Use "Align to Grid" to snap camera position to world grid
+- Enable "Show Grid" to visualize alignment
+- Parent objects to empties for precise group positioning
+- Use Blender's snap tools (Shift+S) for object placement
+
+### Crisp Renders
+- Disable denoising for technical drawings
+- Use sufficient samples (256+) to avoid noise
+- Enable Freestyle for clean line art
+- Render at 2× size and scale down for anti-aliasing
+
+### Consistent Asset Library
+- Save camera setup as preset
+- Use same orthographic scale for all assets
+- Create template .blend file with camera pre-configured
+- Use naming convention for consistent file organization
+
+### Performance
+- Lower samples for isometric (less complex than perspective)
+- Disable unnecessary effects (DOF, motion blur)
+- Use simple materials for technical work
+- Optimize geometry (isometric reveals all faces)
+
+---
+
+## Troubleshooting
+
+### Problem: Objects appear distorted
+**Solution:** Ensure camera type is set to "Orthographic", not "Perspective"
+
+### Problem: Angles don't look right
+**Solution:** Verify rotation is 45° and tilt is 35.264° for true isometric
+
+### Problem: Scale is wrong between objects
+**Solution:** Check orthographic scale is consistent; objects maintain relative size in orthographic
+
+### Problem: Edges look jagged
+**Solution:** Increase render resolution or enable anti-aliasing; avoid denoising which softens edges
+
+### Problem: Can't see entire model
+**Solution:** Increase orthographic scale value to zoom out; use "Frame Selection" helper
+
+### Problem: Lighting looks flat
+**Solution:** Expected for technical drawings; add subtle rim light if desired; ensure main light is from top-left
+
+### Problem: Transparent background not working
+**Solution:** Enable "Transparent" in Film settings and render to PNG format
+
+### Problem: Freestyle lines too thick/thin
+**Solution:** Adjust Freestyle line thickness in render layer settings; typical range 1-3 pixels
+
+---
+
+## Technical Notes
+
+### Math Behind Isometric Angles
+
+True isometric projection uses:
+- **35.264°** vertical tilt = `arctan(1/√2)` = `arctan(0.7071)`
+- **45°** horizontal rotation = Equal X and Y contribution
+- **Result:** All three axes (X, Y, Z) appear at 120° to each other
+
+### Orthographic vs Perspective
+
+**Orthographic:**
+- Parallel projection rays
+- No depth falloff
+- Objects same size regardless of distance
+- Used for technical, architectural, game art
+
+**Perspective:**
+- Converging projection rays
+- Depth falloff (objects smaller with distance)
+- Matches human vision
+- Used for realistic rendering, photography
+
+### Integration with Game Engines
+
+Many game engines use isometric or dimetric projections:
+- **Unity:** Orthographic camera with isometric angles
+- **Unreal:** Orthographic mode with custom angles
+- **Godot:** Orthographic projection settings
+- **GameMaker:** Built-in isometric support
+
+Export from Blender matches these engines when using identical angles and orthographic projection.
+
+---
+
+## Examples
+
+### Example 1: Technical Product Visualization
+**Setup:**
+- Isometric camera at 45°/35.264°
+- Orthographic scale: 6.0
+- Freestyle lines enabled
+- White background
+- Flat lighting from top
+
+**Result:** Clean technical drawing suitable for assembly instructions
+
+### Example 2: Isometric Game Tileset
+**Setup:**
+- Dimetric camera at 45°/30°
+- Orthographic scale: 8.0
+- No Freestyle
+- Transparent background
+- Subtle directional lighting
+
+**Result:** Game-ready tiles with consistent perspective
+
+### Example 3: Architectural Floor Plan View
+**Setup:**
+- Military projection (0° tilt, 45° rotation)
+- Orthographic scale: 20.0
+- Reference grid enabled
+- Neutral gray background
+- Even overhead lighting
+
+**Result:** Clear floor plan with depth indication
+
+### Example 4: UI Icon Rendering
+**Setup:**
+- Isometric camera
+- Orthographic scale: 3.0
+- 2048×2048 resolution
+- Rim lighting
+- Transparent background
+
+**Result:** High-quality UI icon ready for implementation
+
+---
+
+## Related Documentation
+
+- [Standard Camera](./standard.mdx) - Traditional perspective camera
+- [VR180 Fisheye](./vr180-fisheye.mdx) - Stereoscopic VR camera
+- [VR360 Mono](./vr360-mono.mdx) - 360° VR camera
+
+---
+
+## Technical Implementation
+
+For implementation details, see:
+- [Isometric Camera - Part 1: Overview & Data Model](./isometric-tech-01-overview.mdx)
+- [Isometric Camera - Part 2: Core Implementation](./isometric-tech-02-implementation.mdx)
+- [Isometric Camera - Part 3: Operators & UI](./isometric-tech-03-operators.mdx)
+- [Isometric Camera - Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)

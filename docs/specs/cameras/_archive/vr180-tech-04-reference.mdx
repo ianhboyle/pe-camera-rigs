@@ -1,0 +1,377 @@
+---
+title: VR180 Fisheye Camera Rig - Part 4: Reference & Testing
+description: API reference, test cases, performance notes, and dependencies
+status: Planning
+priority: High
+---
+
+# VR180 Fisheye Camera Rig - Part 4: Reference & Testing
+
+**Last Updated:** 2025-12-08 (Updated to match Part 3 UX)
+
+**See also:**
+- [← Part 1: Overview & Data Model](./vr180-tech-01-overview.mdx)
+- [← Part 2: Core Implementation](./vr180-tech-02-implementation.mdx)
+- [← Part 3: Operators & UI](./vr180-tech-03-operators.mdx) - **Authoritative 4-step workflow**
+- [Part 5: Python Implementation Code →](./vr180-tech-05-code.mdx)
+
+---
+
+## Blender API Calls Reference
+
+### Camera Creation
+
+```python
+# Create camera
+bpy.ops.object.camera_add(location=(x, y, z))
+cam = bpy.context.active_object
+
+# Set to panoramic
+cam.data.type = 'PANO'
+
+# Set fisheye equisolid
+cam.data.cycles.panorama_type = 'FISHEYE_EQUISOLID'
+cam.data.cycles.fisheye_fov = math.radians(190.0)
+cam.data.cycles.fisheye_lens = 5.2
+```
+
+### Scene Creation
+
+```python
+# New scene with linked objects
+bpy.ops.scene.new(type='LINK_OBJECTS')
+scene = bpy.context.window.scene
+scene.name = "LeftEye"
+
+# Set active camera
+scene.camera = camera_object
+```
+
+### Compositor Nodes
+
+```python
+# Enable compositor
+scene.use_nodes = True
+tree = scene.node_tree
+
+# Create nodes
+rl = tree.nodes.new('CompositorNodeRLayers')
+denoise = tree.nodes.new('CompositorNodeDenoise')
+translate = tree.nodes.new('CompositorNodeTranslate')
+alpha_over = tree.nodes.new('CompositorNodeAlphaOver')
+composite = tree.nodes.new('CompositorNodeComposite')
+
+# Link nodes
+tree.links.new(rl.outputs['Image'], denoise.inputs['Image'])
+tree.links.new(denoise.outputs['Image'], translate.inputs['Image'])
+```
+
+### Render Settings
+
+```python
+scene = bpy.context.scene
+
+# Resolution
+scene.render.resolution_x = 5760
+scene.render.resolution_y = 2880
+scene.render.resolution_percentage = 100
+
+# FFmpeg H.265
+scene.render.image_settings.file_format = 'FFMPEG'
+scene.render.ffmpeg.format = 'MPEG4'
+scene.render.ffmpeg.codec = 'H265'
+scene.render.ffmpeg.video_bitrate = 100000  # 100Mbps
+
+# Cycles
+scene.render.engine = 'CYCLES'
+scene.cycles.device = 'GPU'
+scene.cycles.samples = 512
+scene.cycles.use_denoising = True
+```
+
+---
+
+## Test Cases
+
+### Test 1: Basic Rig Creation
+
+```python
+def test_create_basic_rig():
+    """Test creating default VR180 rig"""
+    rig, cam_l, cam_r = create_vr180_fisheye_rig()
+
+    assert rig is not None
+    assert cam_l is not None
+    assert cam_r is not None
+    assert cam_l.parent == rig
+    assert cam_r.parent == rig
+    assert cam_l.data.type == 'PANO'
+    assert cam_r.data.type == 'PANO'
+```
+
+### Test 2: IPD Configuration
+
+```python
+def test_ipd_spacing():
+    """Test IPD creates correct camera spacing"""
+    ipd = 0.064
+    rig, cam_l, cam_r = create_vr180_fisheye_rig(ipd=ipd)
+
+    # Check spacing
+    spacing = abs(cam_l.location.x - cam_r.location.x)
+    assert abs(spacing - ipd) < 0.0001  # Within 0.1mm
+```
+
+### Test 3: Metadata Injection
+
+```python
+def test_metadata_injection():
+    """Test VR180 metadata injection"""
+    input_file = "test_render.mp4"
+    output_file = "test_with_metadata.mp4"
+
+    success = inject_vr180_metadata(
+        input_file,
+        output_file,
+        stereo_mode='left-right',
+        verify=True
+    )
+
+    assert success == True
+    assert os.path.exists(output_file)
+```
+
+### Test 4: Camera Level Check
+
+```python
+def test_camera_level_check():
+    """Test camera level detection"""
+    rig, cam_l, cam_r = create_vr180_fisheye_rig()
+
+    # Test level camera
+    is_level, tilt_x, tilt_y = check_camera_level(rig, tolerance_degrees=2.0)
+    assert is_level == True
+
+    # Test tilted camera
+    rig.rotation_euler.x = math.radians(5.0)
+    is_level, tilt_x, tilt_y = check_camera_level(rig, tolerance_degrees=2.0)
+    assert is_level == False
+    assert abs(tilt_x - 5.0) < 0.1
+```
+
+### Test 5: Resolution Preset Application
+
+```python
+def test_resolution_preset():
+    """Test resolution preset application"""
+    settings = bpy.context.scene.vr180_settings
+
+    w, h, fps = apply_resolution_preset('YOUTUBE_5_7K', settings)
+
+    assert w == 5760
+    assert h == 2880
+    assert fps == 60
+```
+
+### Test 6: Subject Distance Calculation
+
+```python
+def test_subject_distance():
+    """Test subject distance calculation and IPD suggestion"""
+    rig, cam_l, cam_r = create_vr180_fisheye_rig()
+
+    # Create test subject at known distance
+    bpy.ops.mesh.primitive_cube_add(location=(0, -2.5, 1.6))
+    subject = bpy.context.active_object
+
+    # Test distance calculation
+    distance = calculate_subject_distance(rig, subject)
+    assert abs(distance - 2.5) < 0.01  # Within 1cm
+
+    # Test IPD suggestion
+    ipd, zone, desc = suggest_ipd_for_distance(distance)
+    assert zone == "close"
+    assert abs(ipd - 0.062) < 0.001
+```
+
+---
+
+## Performance Notes
+
+### Render Time Estimates (RTX 4090)
+
+| Resolution | Samples | Frame Time | 30s Video | Notes |
+|------------|---------|------------|-----------|-------|
+| 3840×1920 | 256 | ~30s | ~15 min | Preview |
+| 5760×2880 | 512 | ~90s | ~45 min | Production |
+| 7680×3840 | 1024 | ~4 min | ~2 hours | Final |
+
+**Optimization Tips:**
+- Use GPU (OptiX) - 10-20x faster than CPU
+- Enable adaptive sampling - 20-30% faster
+- Use path guiding - 10-15% faster
+- Denoise vs more samples - denoising usually faster
+
+### Memory Requirements
+
+| Resolution | Per-Frame VRAM | Scene Complexity |
+|------------|----------------|------------------|
+| 4K (3840×1920) | ~2-4 GB | Simple - Medium |
+| 5.7K (5760×2880) | ~4-8 GB | Medium - Complex |
+| 8K (7680×3840) | ~8-16 GB | Complex only |
+
+**Memory Optimization:**
+- Use out-of-core rendering for large scenes
+- Enable persistent data for animation
+- Use simplified geometry for distant objects
+- Optimize texture sizes
+
+### Disk Space Requirements
+
+**Image Sequences (per eye):**
+- OpenEXR DWAA: ~5-15 MB per frame (5.7K)
+- PNG 16-bit: ~8-20 MB per frame (5.7K)
+
+**Final Video (SBS):**
+- H.265 @ 100Mbps: ~750 MB per minute
+- ProRes 422 HQ: ~3-5 GB per minute
+
+**Example for 5-minute video (5.7K @ 60fps):**
+- Sequences: 2 eyes × 300 frames × 10 MB = ~6 GB
+- Final MP4: 5 min × 750 MB = ~3.75 GB
+- **Total:** ~10 GB
+
+---
+
+## Dependencies
+
+### Required
+- Blender 5.0+ (3.6+ may work)
+- Cycles render engine
+- Python 3.10+
+
+### Bundled
+- spatial-media (Google, Apache 2.0)
+
+### Optional
+- NVIDIA GPU with OptiX support (recommended)
+- AMD GPU with HIP support
+- FFmpeg (bundled with Blender)
+
+### Python Package Requirements
+
+```python
+# requirements.txt (if packaging separately)
+# No external packages required - uses Blender's bundled libraries
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue: Metadata injection fails**
+```python
+# Check spatial-media is bundled
+addon_dir = Path(__file__).parent.parent
+spatialmedia_dir = addon_dir / "lib" / "spatialmedia"
+print(f"Spatial-media found: {spatialmedia_dir.exists()}")
+```
+
+**Issue: GPU rendering not working**
+```python
+# Check available GPU devices
+prefs = bpy.context.preferences
+cycles_prefs = prefs.addons['cycles'].preferences
+for device in cycles_prefs.devices:
+    print(f"Device: {device.name}, Type: {device.type}, Use: {device.use}")
+```
+
+**Issue: Compositor not combining eyes correctly**
+```python
+# Verify translate node X offsets
+eye_width = resolution_x // 2
+print(f"Left offset: 0, Right offset: {eye_width}")
+# Right translate node should have X = eye_width
+```
+
+**Issue: Cameras not level**
+```python
+# Auto-level camera
+auto_level_camera(rig)
+
+# Or manually check/adjust
+is_level, tilt_x, tilt_y = check_camera_level(rig)
+if not is_level:
+    print(f"Camera tilted by {tilt_x:.2f}° (X), {tilt_y:.2f}° (Y)")
+```
+
+---
+
+## YouTube Upload Guidelines
+
+### Pre-Upload Checklist
+
+- [ ] Video resolution: 3840×1920 minimum (5760×2880 recommended)
+- [ ] Frame rate: 30, 60, or 90 fps (60 recommended)
+- [ ] Codec: H.265 (HEVC) or H.264
+- [ ] Bitrate: 100 Mbps recommended for 5.7K
+- [ ] VR180 metadata injected and verified
+- [ ] Stereo mode: left-right (side-by-side)
+- [ ] Audio: AAC, 384 kbps recommended
+
+### YouTube Studio Settings
+
+After upload:
+1. Video settings → Advanced → "360° video" → Select "VR180"
+2. Add title with "VR180" or "180 3D" for discoverability
+3. Add description noting VR headset required
+4. Processing may take 1-2 hours for VR features
+
+### Recommended YouTube Specs
+
+| Quality Level | Resolution | Bitrate | Use Case |
+|---------------|------------|---------|----------|
+| Good | 3840×1920 | 50 Mbps | Mobile VR |
+| Better | 5760×2880 | 100 Mbps | Quest/PSVR |
+| Best | 7680×3840 | 150 Mbps | High-end PCVR |
+
+---
+
+## Sources
+
+- [YouTube VR180 Specs Research](../../research/youtube-vr180-specs.mdx)
+- [Blender VR Best Practices](../../research/blender-vr-best-practices.mdx)
+- [Metadata Injection Automation](../../research/metadata-injection-automation.mdx)
+- [Google spatial-media](https://github.com/google/spatial-media)
+- [Blender Cycles Documentation](https://docs.blender.org/manual/en/latest/render/cycles/)
+- [YouTube VR180 Upload Guidelines](https://support.google.com/youtube/answer/6316263)
+
+---
+
+## Change Log
+
+**v1.0 - Initial Specification**
+- Complete data model
+- Core implementation functions
+- Three-step workflow operators
+- UI panels
+- Test cases
+- Performance benchmarks
+
+---
+
+**Ready for implementation! All code is copy-paste ready.**
+
+---
+
+## Quick Start Guide
+
+1. **Install the add-on** (once implemented)
+2. **Step 1:** Click "Add VR180 Rig & Scene" - creates camera, lighting, background
+3. **Step 2:** Click "Render VR180 Sequences" - renders left/right eye sequences (crash-safe!)
+4. **Step 3:** Click "Composite & Export to YouTube" - creates final MP4 with metadata
+5. **Upload to YouTube** and wait for VR processing to complete!
+
+**That's it!** Three clicks from scene to YouTube-ready VR180 video.

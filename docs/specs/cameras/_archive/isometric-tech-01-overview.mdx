@@ -1,0 +1,808 @@
+---
+title: Isometric Camera - Part 1: Overview & Data Model
+description: Data structures, property definitions, and function signatures
+status: Planning
+priority: Medium
+---
+
+# Isometric Camera - Part 1: Overview & Data Model
+
+**Status:** Planning - Ready for Implementation
+**File Location:** `addons/vr_production_toolkit/`
+**Dependencies:** Blender 3.0+, Cycles/EEVEE
+**Last Updated:** 2025-12-08 (Updated to match Part 3 UX)
+
+---
+
+## Overview
+
+This is Part 1 of the Isometric Camera technical specification, covering:
+- Data model and property definitions
+- Function signatures and interfaces
+- File organization structure
+
+**Note:** This document has been updated to match the **1-click preset workflow** defined in [Part 3: Operators & UI](./isometric-tech-03-operators.mdx). All 7 presets (Game Isometric, Game 4:3, True Isometric, Dimetric, Trimetric, Military, Cavalier) are now fully specified.
+
+For implementation details, see:
+- [Part 2: Core Implementation](./isometric-tech-02-implementation.mdx)
+- [Part 3: Operators & UI](./isometric-tech-03-operators.mdx)
+- [Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)
+
+---
+
+## Data Model
+
+### Property Group Definition
+
+```python
+# File: addons/vr_production_toolkit/ui/properties.py
+
+import bpy
+import math
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    EnumProperty,
+    BoolProperty,
+    StringProperty,
+)
+from bpy.types import PropertyGroup
+
+
+class IsometricSettings(PropertyGroup):
+    """Settings for isometric orthographic camera"""
+
+    # ==========================================
+    # Projection Type
+    # ==========================================
+
+    projection_type: EnumProperty(
+        name="Projection Type",
+        description="Type of parallel projection",
+        items=[
+            # Game & Pixel Art (Most Common)
+            ('GAME_ISOMETRIC', "Game Isometric (2:1)", "26.565° tilt • Perfect for strategy games • 2:1 pixel ratio stairs"),
+            ('GAME_4TO3', "Game 4:3 Ratio", "30° tilt • Perfect for RPG tiles • Diamond tiles in 4:3 aspect"),
+
+            # Technical & CAD
+            ('TRUE_ISOMETRIC', "True Isometric", "35.264° tilt • Mathematically correct • All axes equally foreshortened"),
+            ('DIMETRIC', "Dimetric (30°)", "30° tilt • Two axes equal • Common in Japanese games"),
+            ('TRIMETRIC', "Trimetric", "60° + 30° • All axes different • Unique perspectives"),
+
+            # Plans & Maps
+            ('MILITARY', "Military (Top-Down)", "90° tilt • Perfect top-down view • Floor plans, RTS games"),
+            ('CAVALIER', "Cavalier", "0° + 45° roll • Front face true size • Cabinet drawings"),
+
+            # Custom
+            ('CUSTOM', "Custom Angles", "User-defined rotation and tilt"),
+        ],
+        default='TRUE_ISOMETRIC',  # True isometric as default (most mathematically correct)
+    )
+
+    # ==========================================
+    # Camera Angles
+    # ==========================================
+
+    rotation_z: FloatProperty(
+        name="Rotation (Z)",
+        description="Horizontal rotation around Z-axis (pan angle)",
+        default=math.radians(45.0),
+        min=math.radians(-180.0),
+        max=math.radians(180.0),
+        step=100,
+        precision=2,
+        subtype='ANGLE',
+    )
+
+    tilt_x: FloatProperty(
+        name="Tilt (X)",
+        description="Vertical rotation around X-axis (pitch angle)",
+        default=math.atan(1.0 / math.sqrt(2.0)),  # 35.264° for true isometric
+        min=math.radians(-90.0),
+        max=math.radians(90.0),
+        step=100,
+        precision=2,
+        subtype='ANGLE',
+    )
+
+    roll_y: FloatProperty(
+        name="Roll (Y)",
+        description="Camera roll around Y-axis (usually 0° for isometric)",
+        default=0.0,
+        min=math.radians(-180.0),
+        max=math.radians(180.0),
+        step=100,
+        precision=2,
+        subtype='ANGLE',
+    )
+
+    # ==========================================
+    # Orthographic Scale
+    # ==========================================
+
+    ortho_scale: FloatProperty(
+        name="Orthographic Scale",
+        description="Orthographic camera scale (zoom level)",
+        default=14.0,  # IsoCam standard
+        min=0.1,
+        max=1000.0,
+        soft_min=1.0,
+        soft_max=100.0,
+        step=10,
+        precision=2,
+    )
+
+    # ==========================================
+    # Camera Position
+    # ==========================================
+
+    camera_distance: FloatProperty(
+        name="Camera Distance",
+        description="Distance from origin (target point)",
+        default=15.0,
+        min=1.0,
+        max=1000.0,
+        soft_min=5.0,
+        soft_max=50.0,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    camera_height: FloatProperty(
+        name="Camera Height",
+        description="Camera Z height above ground plane",
+        default=10.0,
+        min=-100.0,
+        max=100.0,
+        soft_min=0.0,
+        soft_max=30.0,
+        unit='LENGTH',
+        precision=2,
+        subtype='DISTANCE',
+    )
+
+    # ==========================================
+    # Visual Aids
+    # ==========================================
+
+    show_grid: BoolProperty(
+        name="Show Grid",
+        description="Display reference grid plane",
+        default=True,
+    )
+
+    show_axes: BoolProperty(
+        name="Show Axes",
+        description="Display X, Y, Z axis indicators",
+        default=False,
+    )
+
+    show_scale_reference: BoolProperty(
+        name="Show Scale Reference",
+        description="Display measurement reference objects",
+        default=False,
+    )
+
+    grid_size: FloatProperty(
+        name="Grid Size",
+        description="Size of reference grid",
+        default=20.0,
+        min=1.0,
+        max=1000.0,
+        unit='LENGTH',
+        precision=1,
+        subtype='DISTANCE',
+    )
+
+    # ==========================================
+    # Resolution Presets
+    # ==========================================
+
+    resolution_preset: EnumProperty(
+        name="Resolution Preset",
+        description="Common resolution presets for isometric rendering",
+        items=[
+            ('1K_SQUARE', "1K Square", "1024×1024 (game assets, icons)"),
+            ('2K_SQUARE', "2K Square", "2048×2048 (high-quality icons)"),
+            ('4K_SQUARE', "4K Square", "4096×4096 (print-ready)"),
+            ('HD', "HD 1080p", "1920×1080 (presentation)"),
+            ('4K', "4K 2160p", "3840×2160 (high-res documentation)"),
+            ('CUSTOM', "Custom", "User-defined resolution"),
+        ],
+        default='2K_SQUARE',
+    )
+
+    resolution_x: IntProperty(
+        name="Resolution X",
+        description="Render width in pixels",
+        default=2048,
+        min=128,
+        max=16384,
+        subtype='PIXEL',
+    )
+
+    resolution_y: IntProperty(
+        name="Resolution Y",
+        description="Render height in pixels",
+        default=2048,
+        min=128,
+        max=16384,
+        subtype='PIXEL',
+    )
+
+    # ==========================================
+    # Render Settings
+    # ==========================================
+
+    render_quality: EnumProperty(
+        name="Render Quality",
+        description="Quality preset for rendering",
+        items=[
+            ('DRAFT', "Draft", "64 samples, fast preview"),
+            ('PREVIEW', "Preview", "128 samples, balanced"),
+            ('FINAL', "Final", "256 samples, high quality"),
+            ('ULTRA', "Ultra", "512 samples, maximum quality"),
+            ('CUSTOM', "Custom", "User-defined samples"),
+        ],
+        default='PREVIEW',
+    )
+
+    render_samples: IntProperty(
+        name="Render Samples",
+        description="Number of render samples",
+        default=128,
+        min=1,
+        max=4096,
+    )
+
+    use_transparent: BoolProperty(
+        name="Transparent Background",
+        description="Render with transparent alpha channel",
+        default=True,
+    )
+
+    use_freestyle: BoolProperty(
+        name="Freestyle Lines",
+        description="Enable Freestyle line rendering for technical drawings",
+        default=False,
+    )
+
+    freestyle_thickness: FloatProperty(
+        name="Line Thickness",
+        description="Freestyle line thickness in pixels",
+        default=1.5,
+        min=0.1,
+        max=10.0,
+        precision=1,
+    )
+
+    # ==========================================
+    # Scene Setup Options
+    # ==========================================
+
+    add_lighting: BoolProperty(
+        name="Add Lighting",
+        description="Add default three-point lighting setup",
+        default=True,
+    )
+
+    lighting_preset: EnumProperty(
+        name="Lighting Preset",
+        description="Lighting setup style",
+        items=[
+            ('TECHNICAL', "Technical", "Flat, shadowless lighting for technical drawings"),
+            ('SOFT', "Soft", "Subtle directional lighting with soft shadows"),
+            ('STUDIO', "Studio", "Three-point lighting for presentation"),
+            ('GAME', "Game", "Directional from top-left for game assets"),
+        ],
+        default='SOFT',
+    )
+
+    add_reference_objects: BoolProperty(
+        name="Add Reference Objects",
+        description="Add scale reference objects to scene",
+        default=False,
+    )
+```
+
+---
+
+## Function Signatures
+
+### Camera Creation
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+def create_isometric_camera(
+    context: bpy.types.Context,
+    name: str = "IsometricCamera",
+    projection_type: str = 'TRUE_ISOMETRIC',
+    ortho_scale: float = 14.0,
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> tuple[bpy.types.Object, bpy.types.Object]:
+    """
+    Create isometric orthographic camera with parent empty.
+
+    Args:
+        context: Blender context
+        name: Base name for camera and parent empty
+        projection_type: Preset projection type
+            - 'GAME_ISOMETRIC': Game Isometric (2:1)
+            - 'GAME_4TO3': Game 4:3 Ratio
+            - 'TRUE_ISOMETRIC': True Isometric (default)
+            - 'DIMETRIC': Dimetric (30°)
+            - 'TRIMETRIC': Trimetric
+            - 'MILITARY': Military (Top-Down)
+            - 'CAVALIER': Cavalier
+            - 'CUSTOM': Custom angles
+        ortho_scale: Orthographic camera scale (14.0 = IsoCam standard)
+        location: World location for camera parent
+
+    Returns:
+        Tuple of (parent_empty, camera_object)
+
+    Creates:
+        - Parent empty at location
+        - Orthographic camera as child of empty
+        - Sets perfect isometric angles for preset
+        - Adds to 'Isometric_Cameras' collection
+        - Auto-activates camera view (IsoCam-style)
+    """
+    pass
+
+
+def set_isometric_angles(
+    camera: bpy.types.Object,
+    projection_type: str = 'ISOMETRIC',
+    rotation_z: float = None,
+    tilt_x: float = None,
+    roll_y: float = None,
+) -> tuple[float, float, float]:
+    """
+    Set camera rotation to isometric or custom angles.
+
+    Args:
+        camera: Camera object to rotate
+        projection_type: Preset projection type
+        rotation_z: Override Z rotation (radians), None uses preset
+        tilt_x: Override X tilt (radians), None uses preset
+        roll_y: Override Y roll (radians), None uses preset
+
+    Returns:
+        Tuple of (rotation_z, tilt_x, roll_y) in radians
+
+    Projection presets:
+        GAME_ISOMETRIC: (45°, 26.565°, 0°) - 2:1 pixel ratio stairs
+        GAME_4TO3: (45°, 30°, 0°) - 4:3 diamond tiles
+        TRUE_ISOMETRIC: (45°, 35.264°, 0°) - Mathematically correct
+        DIMETRIC: (45°, 30°, 0°) - Two axes equal
+        TRIMETRIC: (60°, 30°, 0°) - All axes different
+        MILITARY: (0° or 45°, 90°, 0°) - Top-down view
+        CAVALIER: (0°, 0°, 45°) - Front face true size
+    """
+    pass
+
+
+def update_orthographic_scale(
+    camera: bpy.types.Object,
+    scale: float,
+) -> None:
+    """
+    Update camera orthographic scale (zoom level).
+
+    Args:
+        camera: Camera object
+        scale: Orthographic scale value (higher = zoomed out)
+    """
+    pass
+
+
+def frame_selection(
+    context: bpy.types.Context,
+    camera: bpy.types.Object,
+    padding: float = 1.2,
+) -> float:
+    """
+    Auto-fit camera to frame selected objects.
+
+    Args:
+        context: Blender context
+        camera: Camera object to adjust
+        padding: Padding multiplier (1.0 = exact fit, 1.2 = 20% padding)
+
+    Returns:
+        New orthographic scale value
+
+    Calculates bounding box of selected objects and adjusts
+    orthographic scale to frame them with specified padding.
+    """
+    pass
+
+
+def reset_to_isometric(
+    camera: bpy.types.Object,
+) -> None:
+    """
+    Reset camera to standard isometric angles.
+
+    Args:
+        camera: Camera object to reset
+
+    Sets:
+        - Rotation Z: 45°
+        - Tilt X: 35.264° (arctan 1/√2)
+        - Roll Y: 0°
+    """
+    pass
+```
+
+### Scene Setup
+
+```python
+# File: addons/vr_production_toolkit/scene_setup.py
+
+def add_reference_grid(
+    context: bpy.types.Context,
+    size: float = 20.0,
+    subdivisions: int = 10,
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    """
+    Add reference grid plane for alignment.
+
+    Args:
+        context: Blender context
+        size: Grid size in Blender units
+        subdivisions: Number of grid subdivisions
+        location: Grid center location
+
+    Returns:
+        Grid plane object
+
+    Creates:
+        - Plane mesh with subdivision surface
+        - Wireframe material
+        - Added to 'Isometric_Reference' collection
+    """
+    pass
+
+
+def add_axis_indicators(
+    context: bpy.types.Context,
+    length: float = 5.0,
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> list[bpy.types.Object]:
+    """
+    Add X, Y, Z axis indicator arrows.
+
+    Args:
+        context: Blender context
+        length: Arrow length
+        location: Origin point for axes
+
+    Returns:
+        List of [x_arrow, y_arrow, z_arrow] objects
+
+    Creates:
+        - Red arrow for X-axis
+        - Green arrow for Y-axis
+        - Blue arrow for Z-axis
+        - Added to 'Isometric_Reference' collection
+    """
+    pass
+
+
+def add_scale_reference(
+    context: bpy.types.Context,
+    floor_size: float = 10.0,
+    cube_size: float = 5.0,
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> tuple[bpy.types.Object, bpy.types.Object]:
+    """
+    Add isometric scale reference (grid floor + centered cube).
+
+    Args:
+        context: Blender context
+        floor_size: Size of floor plane (default 10x10)
+        cube_size: Size of reference cube (default 5x5x5)
+        location: Center location
+
+    Returns:
+        Tuple of (floor_plane, reference_cube)
+
+    Creates:
+        - 10x10 grid floor with checker pattern
+        - 5x5x5 blue cube in center
+        - Perfect for isometric technical views
+        - Added to 'Isometric_Reference' collection
+    """
+    pass
+
+
+def setup_isometric_lighting(
+    context: bpy.types.Context,
+    preset: str = 'SOFT',
+) -> list[bpy.types.Object]:
+    """
+    Add lighting setup for isometric rendering.
+
+    Args:
+        context: Blender context
+        preset: Lighting preset name
+
+    Returns:
+        List of light objects created
+
+    Presets:
+        TECHNICAL: Single flat area light from top (shadowless)
+        SOFT: Directional sun + ambient fill
+        STUDIO: Three-point lighting (key, fill, rim)
+        GAME: Single directional from top-left corner
+
+    Creates:
+        - Lights added to 'Isometric_Lighting' collection
+    """
+    pass
+```
+
+### Render Settings
+
+```python
+# File: addons/vr_production_toolkit/render_utils.py
+
+def apply_isometric_render_settings(
+    scene: bpy.types.Scene,
+    settings: 'IsometricSettings',
+) -> None:
+    """
+    Apply isometric-optimized render settings.
+
+    Args:
+        scene: Scene to configure
+        settings: IsometricSettings property group
+
+    Configures:
+        - Resolution from preset or custom
+        - Sampling based on quality preset
+        - Transparent background if enabled
+        - Freestyle lines if enabled
+        - Optimal render engine settings
+    """
+    pass
+
+
+def apply_resolution_preset(
+    scene: bpy.types.Scene,
+    preset: str,
+) -> tuple[int, int]:
+    """
+    Apply resolution preset to scene.
+
+    Args:
+        scene: Scene to configure
+        preset: Resolution preset name
+
+    Returns:
+        Tuple of (width, height) in pixels
+
+    Presets:
+        1K_SQUARE: 1024×1024
+        2K_SQUARE: 2048×2048
+        4K_SQUARE: 4096×4096
+        HD: 1920×1080
+        4K: 3840×2160
+    """
+    pass
+
+
+def apply_quality_preset(
+    scene: bpy.types.Scene,
+    preset: str,
+) -> int:
+    """
+    Apply render quality preset.
+
+    Args:
+        scene: Scene to configure
+        preset: Quality preset name
+
+    Returns:
+        Number of samples applied
+
+    Presets:
+        DRAFT: 64 samples
+        PREVIEW: 128 samples
+        FINAL: 256 samples
+        ULTRA: 512 samples
+    """
+    pass
+
+
+def setup_freestyle(
+    scene: bpy.types.Scene,
+    thickness: float = 1.5,
+    color: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> None:
+    """
+    Configure Freestyle line rendering for technical drawings.
+
+    Args:
+        scene: Scene to configure
+        thickness: Line thickness in pixels
+        color: Line RGB color (0.0-1.0)
+
+    Configures:
+        - Enables Freestyle in view layer
+        - Sets up line style with thickness
+        - Configures edge detection
+    """
+    pass
+
+
+def setup_transparent_background(
+    scene: bpy.types.Scene,
+    enabled: bool = True,
+) -> None:
+    """
+    Configure transparent background rendering.
+
+    Args:
+        scene: Scene to configure
+        enabled: Enable or disable transparency
+
+    Configures:
+        - Film transparency setting
+        - Ensures PNG or EXR output format
+    """
+    pass
+```
+
+---
+
+## File Organization
+
+```
+addons/vr_production_toolkit/
+├── __init__.py                          # Registration, bl_info
+├── camera_rigs.py                       # Camera creation functions
+│   ├── create_isometric_camera()
+│   ├── set_isometric_angles()
+│   ├── update_orthographic_scale()
+│   ├── frame_selection()
+│   └── reset_to_isometric()
+├── scene_setup.py                       # Scene elements
+│   ├── add_reference_grid()
+│   ├── add_axis_indicators()
+│   ├── add_scale_reference()
+│   └── setup_isometric_lighting()
+├── render_utils.py                      # Render configuration
+│   ├── apply_isometric_render_settings()
+│   ├── apply_resolution_preset()
+│   ├── apply_quality_preset()
+│   ├── setup_freestyle()
+│   └── setup_transparent_background()
+└── ui/
+    ├── properties.py                    # IsometricSettings PropertyGroup
+    ├── operators.py                     # Blender operators (Part 3)
+    └── panels.py                        # UI panels (Part 3)
+```
+
+---
+
+## Constants & Enums
+
+```python
+# File: addons/vr_production_toolkit/camera_rigs.py
+
+import math
+
+# Isometric angle constants - All 7 presets from Part 3
+
+# Game & Pixel Art
+GAME_ISOMETRIC_ROTATION_Z = math.radians(45.0)
+GAME_ISOMETRIC_TILT_X = math.radians(26.565)  # 2:1 pixel ratio for stairs
+GAME_ISOMETRIC_ROLL_Y = 0.0
+
+GAME_4TO3_ROTATION_Z = math.radians(45.0)
+GAME_4TO3_TILT_X = math.radians(30.0)  # 4:3 diamond tiles
+GAME_4TO3_ROLL_Y = 0.0
+
+# Technical & CAD
+TRUE_ISOMETRIC_ROTATION_Z = math.radians(45.0)
+TRUE_ISOMETRIC_TILT_X = math.atan(1.0 / math.sqrt(2.0))  # 35.264° - Mathematically correct
+TRUE_ISOMETRIC_ROLL_Y = 0.0
+
+DIMETRIC_ROTATION_Z = math.radians(45.0)
+DIMETRIC_TILT_X = math.radians(30.0)  # Two axes equal
+DIMETRIC_ROLL_Y = 0.0
+
+TRIMETRIC_ROTATION_Z = math.radians(60.0)  # Custom angle
+TRIMETRIC_TILT_X = math.radians(30.0)  # All axes different
+TRIMETRIC_ROLL_Y = 0.0
+
+# Plans & Maps
+MILITARY_ROTATION_Z = math.radians(45.0)  # Can be 0° or 45°
+MILITARY_TILT_X = math.radians(90.0)  # Looking straight down
+MILITARY_ROLL_Y = 0.0
+
+CAVALIER_ROTATION_Z = 0.0  # Straight front
+CAVALIER_TILT_X = 0.0  # No tilt
+CAVALIER_ROLL_Y = math.radians(45.0)  # Depth at 45° angle
+
+# Collection names
+COLLECTION_CAMERAS = "Isometric_Cameras"
+COLLECTION_LIGHTING = "Isometric_Lighting"
+COLLECTION_REFERENCE = "Isometric_Reference"
+
+# Resolution presets (width, height)
+RESOLUTION_PRESETS = {
+    '1K_SQUARE': (1024, 1024),
+    '2K_SQUARE': (2048, 2048),
+    '4K_SQUARE': (4096, 4096),
+    'HD': (1920, 1080),
+    '4K': (3840, 2160),
+}
+
+# Quality presets (samples)
+QUALITY_PRESETS = {
+    'DRAFT': 64,
+    'PREVIEW': 128,
+    'FINAL': 256,
+    'ULTRA': 512,
+}
+```
+
+---
+
+## Dependencies
+
+### Blender Modules
+```python
+import bpy
+import math
+from mathutils import Vector, Euler
+```
+
+### Standard Library
+```python
+import math
+from typing import Tuple, List, Optional
+```
+
+---
+
+## Registration
+
+```python
+# File: addons/vr_production_toolkit/__init__.py
+
+from bpy.utils import register_class, unregister_class
+from .ui.properties import IsometricSettings
+
+def register():
+    register_class(IsometricSettings)
+    bpy.types.Scene.isometric_settings = bpy.props.PointerProperty(
+        type=IsometricSettings
+    )
+
+def unregister():
+    del bpy.types.Scene.isometric_settings
+    unregister_class(IsometricSettings)
+```
+
+---
+
+## Next Steps
+
+Continue to:
+- **[Part 2: Core Implementation](./isometric-tech-02-implementation.mdx)** - Function implementations and step-by-step guide
+- **[Part 3: Operators & UI](./isometric-tech-03-operators.mdx)** - Blender operators and UI panels (1-click preset workflow)
+- **[Part 4: Reference & Testing](./isometric-tech-04-reference.mdx)** - API reference, test cases, troubleshooting
+- **[Part 5: Python Implementation Code](./isometric-tech-05-code.mdx)** - Copy-paste ready operator code
+
+---
+
+**Status:** Planning - Updated for Part 3 UX (2025-12-08)
+**Last Updated:** 2025-12-08
