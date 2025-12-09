@@ -72,7 +72,7 @@ Four camera rigs I use constantly, divided into two categories:
 
 ### Installation
 
-1. Download the latest `pe_camera_rigs.zip` from [Releases]()
+1. Download the latest `pe_camera_rigs.zip` from [Releases](https://github.com/ianhboyle/pe-camera-rigs/releases)
 2. In Blender: `Edit` → `Preferences` → `Add-ons`
 3. Click `Install...` and select the zip file
 4. Enable "PE Camera Rigs"
