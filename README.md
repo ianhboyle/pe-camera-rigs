@@ -47,8 +47,6 @@ Four camera rigs I use constantly, divided into two categories:
 
 ## 📖 Documentation
 
-**New in v2.0:** Complete rewrite with focused, feature-specific guides!
-
 ### Getting Started
 
 1. **[Installation Guide](./docs/guides/01-installation.mdx)** - Install and configure the addon

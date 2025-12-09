@@ -80,7 +80,7 @@ docs/
 
 ---
 
-## ✨ What's New in v2.0 Documentation
+## ✨ What's New in v1.0 Documentation
 
 - ✅ **Focused guides** - One guide per feature (no more mega-guide!)
 - ✅ **Numbered ordering** - Suggested reading order for new users
