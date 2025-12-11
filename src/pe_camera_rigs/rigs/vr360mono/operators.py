@@ -91,6 +91,11 @@ class VR360_OT_RenderSequence(Operator):
     bl_description = "Renders a crash-safe OpenEXR sequence for the 360 mono camera"
     bl_options = {'REGISTER'}
 
+    @classmethod
+    def poll(cls, context):
+        """Only enable if VR360 scene has been created."""
+        return VR360_CAM_NAME in bpy.data.objects
+
     def _validate_preconditions(self, context):
         """Validate all prerequisites before starting render."""
         settings = context.scene.pe_vr360_mono_settings
@@ -207,6 +212,17 @@ class VR360_OT_SetupCompositor(Operator):
     bl_label = "3. Setup Compositor"
     bl_description = "Creates a compositor scene with all nodes linked for 360 mono"
     bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        """Only enable if VR360 sequence has been rendered."""
+        settings = context.scene.pe_vr360_mono_settings
+        try:
+            output_base_path = bpy.path.abspath(settings.output_path)
+            sequence_folder = Path(output_base_path) / "vr360" / "sequence"
+            return sequence_folder.exists()
+        except:
+            return False
 
     def _validate_preconditions(self, context):
         """Validate that rendered sequence exists before setting up compositor."""
@@ -337,6 +353,11 @@ class VR360_OT_RenderYouTube(Operator):
     bl_label = "4. Render YouTube Video"
     bl_description = "Renders the final 360 mono video from the compositor scene"
     bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        """Only enable if compositor scene exists."""
+        return VR360_COMPOSITOR_SCENE_NAME in bpy.data.scenes
 
     def _validate_preconditions(self, context):
         """Validate that compositor scene exists with valid node setup."""

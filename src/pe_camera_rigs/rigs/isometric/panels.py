@@ -18,6 +18,8 @@ class ISOMETRIC_PT_add_panel(bpy.types.Panel):
         # Use an EnumProperty to show presets in a dropdown menu
         col.prop(context.scene.pe_iso_cam_add_props, "initial_preset", text="")
 
+        col.separator()
+        col.scale_y = 1.3
         # The operator button will use the value from the dropdown
         op = col.operator("cgt.add_isometric_controller", text="Add Isometric Rig", icon='CAMERA_DATA')
         op.initial_preset = context.scene.pe_iso_cam_add_props.initial_preset

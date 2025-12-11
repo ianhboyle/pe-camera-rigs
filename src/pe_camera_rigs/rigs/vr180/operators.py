@@ -87,6 +87,11 @@ class VR180_OT_RenderSequences(Operator):
     bl_description = "Renders left and right eye sequences to crash-safe OpenEXR files"
     bl_options = {'REGISTER'}
 
+    @classmethod
+    def poll(cls, context):
+        """Only enable if VR180 scene has been created."""
+        return VR180_RIG_NAME in bpy.data.objects
+
     def _validate_preconditions(self, context):
         """Validate all prerequisites before starting render."""
         settings = context.scene.pe_vr180_settings
@@ -233,6 +238,18 @@ class VR180_OT_SetupCompositor(Operator):
     bl_label = "3. Setup Compositor"
     bl_description = "Creates compositor scene with all nodes linked correctly"
     bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        """Only enable if VR180 sequences have been rendered."""
+        settings = context.scene.pe_vr180_settings
+        try:
+            output_base_path = bpy.path.abspath(settings.output_path)
+            left_folder = Path(output_base_path) / "vr180" / "left"
+            right_folder = Path(output_base_path) / "vr180" / "right"
+            return left_folder.exists() and right_folder.exists()
+        except:
+            return False
 
     def _validate_preconditions(self, context):
         """Validate that rendered sequences exist before setting up compositor."""
@@ -424,6 +441,11 @@ class VR180_OT_RenderYouTube(Operator):
     bl_label = "4. Render YouTube Video"
     bl_description = "Renders the final Side-by-Side (SBS) video from the compositor scene, ready for YouTube"
     bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        """Only enable if compositor scene exists."""
+        return VR180_COMPOSITOR_SCENE_NAME in bpy.data.scenes
 
     def _validate_preconditions(self, context):
         """Validate that compositor scene exists with valid node setup."""

@@ -20,6 +20,8 @@ class ORBIT_PT_add_panel(bpy.types.Panel):
         # Use a temporary property group on the scene to hold the selected preset
         col.prop(context.scene.pe_orbit_cam_add_props, "preset", text="")
 
+        col.separator()
+        col.scale_y = 1.3
         # The operator button will use the value from the dropdown
         op = col.operator("cgt.add_orbit_controller", text="Add Orbit Rig", icon='CAMERA_DATA')
         op.preset = context.scene.pe_orbit_cam_add_props.preset
