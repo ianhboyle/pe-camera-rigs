@@ -10,6 +10,30 @@ A Blender addon providing professional camera rigs for production workflows. The
 
 ---
 
+## Development Status
+
+**Current State:**
+- **Orbit & Isometric Rigs:** Functional and ready for use
+- **VR180 & VR360 Rigs:** Under active development and refinement
+
+**Manual Setup Guides Available:**
+
+While the VR camera automation is being refined, comprehensive manual setup guides have been created:
+
+- **[Manual VR180 Setup](./docs/guides/manual-vr180-canon-setup.mdx)** - Canon RF 5.2mm-inspired stereoscopic VR180 with full compositor workflow
+- **[Manual VR360 Setup](./docs/guides/manual-vr360-mono-setup.mdx)** - 360° panoramic camera with complete post-processing pipeline
+
+These guides provide complete manual workflows including:
+- Camera configuration (equirectangular projection)
+- Render settings and quality presets
+- Compositor node setup (side-by-side stereo for VR180)
+- Video encoding and YouTube VR preparation
+- Troubleshooting and best practices
+
+**For Developers:** When working on VR rig automation, refer to these manual guides to understand the complete workflow that needs to be automated.
+
+---
+
 ## ⚠️ IMPORTANT: Git Commit Guidelines
 
 **CRITICAL:** NO "Co-Authored-By: Claude" lines, NO emojis, NO "Generated with Claude Code" footers, NO AI references.

@@ -1,0 +1,494 @@
+# Manual VR180 Setup - Canon RF 5.2mm Inspired Rig
+
+Complete guide for manually creating a Canon-inspired VR180 camera rig in Blender with proper equirectangular output.
+
+## Overview
+
+This guide creates a stereoscopic VR180 camera rig that mimics Canon's RF 5.2mm lens characteristics but outputs ideal equirectangular frames (no circular crop). Perfect for YouTube VR and other VR180 platforms.
+
+**What you'll create:**
+- Stereo camera rig with 63mm IPD (adjustable)
+- Equirectangular 180° output per eye
+- Side-by-side stereo composite
+- YouTube VR-ready output
+
+**Time required:** 15-20 minutes
+
+---
+
+## Part 1: Camera Rig Setup
+
+### Step 1: Create the Main Rig Parent
+
+1. **Add an Empty:**
+   - Press `Shift + A` → Empty → Circle
+   - In the Outliner, rename it to: `VR180_Rig`
+
+2. **Position at Eye Level:**
+   - Open Properties Panel → Object Properties (orange cube icon)
+   - Set Location:
+     - X: `0`
+     - Y: `0`
+     - Z: `1.6` (average eye height in meters)
+
+---
+
+### Step 2: Create the Left Camera
+
+1. **Add Camera:**
+   - Press `Shift + A` → Camera
+   - In Outliner, rename to: `VR180_Camera_Left`
+
+2. **Configure Camera Data:**
+   - Open Properties Panel → Camera Properties (green camera icon)
+   - **Type:** Change to `Panoramic`
+   - **Panorama Type:** Select `Equirectangular`
+   - **Latitude Min:** `-90°`
+   - **Latitude Max:** `90°`
+   - **Longitude Min:** `-90°` (creates 180° horizontal FOV)
+   - **Longitude Max:** `90°` (creates 180° horizontal FOV)
+   - **Lens → Focal Length:** `5.2` mm (Canon RF spec)
+
+3. **Parent to Rig:**
+   - Select `VR180_Camera_Left` (click in viewport or outliner)
+   - Hold `Shift` and select `VR180_Rig` (rig becomes active/bright)
+   - Press `Ctrl + P` → Object (Keep Transform)
+
+4. **Position the Camera:**
+   - Properties Panel → Object Properties
+   - **Location:**
+     - X: `-0.0315` (half of 63mm IPD = 31.5mm in meters)
+     - Y: `0`
+     - Z: `0`
+   - **Rotation:**
+     - X: `90°` (points camera forward)
+     - Y: `0°`
+     - Z: `0°`
+
+---
+
+### Step 3: Create the Right Camera
+
+1. **Duplicate the Left Camera:**
+   - Select `VR180_Camera_Left`
+   - Press `Shift + D` (duplicate mode)
+   - Press `X` (constrain to X-axis)
+   - Type `0.063` and press `Enter`
+   - This moves the camera 63mm (full IPD distance)
+
+2. **Rename:**
+   - In Outliner, rename to: `VR180_Camera_Right`
+
+3. **Verify Position:**
+   - Properties → Object Properties
+   - Location X should be: `0.0315` (positive)
+   - Location Y: `0`
+   - Location Z: `0`
+   - Rotation should match left camera (90°, 0°, 0°)
+
+---
+
+### Step 4: Configure Render Settings
+
+1. **Output Properties** (Properties Panel → Output, printer icon):
+   - **Resolution:**
+     - X: `7680` (for side-by-side: 3840 per eye)
+     - Y: `3840` (square per eye when split)
+     - % Scale: `100%`
+   - **Frame Rate:** `30` fps (or 24/60 based on preference)
+   - **Frame Range:** Set your start/end frames
+
+2. **File Format:**
+   - **File Format:** `PNG` (for sequences) or `FFmpeg video` (for direct video)
+   - **Color:**
+     - **Color Depth:** `8` bit (or `16` bit for high quality)
+     - **Color Mode:** `RGB` or `RGBA`
+
+---
+
+### Step 5: Configure Render Engine
+
+1. **Render Properties** (camera icon):
+   - **Render Engine:** Change from `Eevee` to `Cycles`
+   - **Device:** `GPU Compute` (if you have a GPU - much faster)
+
+2. **Sampling:**
+   - **Viewport:**
+     - **Max Samples:** `32` (for preview in viewport)
+   - **Render:**
+     - **Max Samples:** `128` (for test renders)
+     - **Max Samples:** `512-1024` (for final quality)
+     - **Noise Threshold:** `0.01` (adaptive sampling)
+
+3. **Light Paths (optional quality boost):**
+   - **Max Bounces:** `12`
+   - **Diffuse:** `4`
+   - **Glossy:** `4`
+   - **Transmission:** `12`
+
+---
+
+### Step 6: Test Your Cameras
+
+1. **View Through Left Camera:**
+   - Select `VR180_Camera_Left` in viewport
+   - Press `Ctrl + Numpad 0` (sets as active camera)
+   - Press `Numpad 0` (enter camera view)
+   - You should see a 180° hemispherical view
+
+2. **View Through Right Camera:**
+   - Select `VR180_Camera_Right`
+   - Press `Ctrl + Numpad 0`
+   - View should be nearly identical but slightly shifted
+
+3. **Test Stereo Parallax:**
+   - Add a test cube: `Shift + A` → Mesh → Cube
+   - Position it at (0, -3, 1.6) so it's in front of the rig
+   - Switch between left/right cameras (`Ctrl + Numpad 0`)
+   - The cube should shift horizontally (stereo effect working!)
+
+---
+
+## Part 2: Rendering Individual Eyes
+
+### Step 7: Render Left Eye Sequence
+
+1. **Set Active Camera:**
+   - Select `VR180_Camera_Left`
+   - Press `Ctrl + Numpad 0`
+
+2. **Set Output Path:**
+   - Properties → Output Properties
+   - Click the folder icon next to output path
+   - Navigate to your project folder
+   - Create a new folder: `output/vr180/left/`
+   - In the filename field, type: `left_`
+   - Blender will automatically add frame numbers (left_0001.png, left_0002.png, etc.)
+
+3. **Render:**
+   - **Single frame:** Press `F12`
+   - **Full animation:** Press `Ctrl + F12`
+   - Wait for render to complete
+
+4. **Verify Output:**
+   - Navigate to your output folder
+   - You should see `left_0001.png` (and subsequent frames if animation)
+   - Image should be 7680×3840 (full resolution)
+
+---
+
+### Step 8: Render Right Eye Sequence
+
+1. **Set Active Camera:**
+   - Select `VR180_Camera_Right`
+   - Press `Ctrl + Numpad 0`
+
+2. **Change Output Path:**
+   - Properties → Output Properties
+   - Change folder to: `output/vr180/right/`
+   - Change filename to: `right_`
+
+3. **Render:**
+   - Press `Ctrl + F12` for full animation
+   - Wait for completion
+
+4. **Verify Output:**
+   - Check `output/vr180/right/` folder
+   - Should have matching frame count as left eye
+
+---
+
+## Part 3: Side-by-Side Compositor Setup
+
+Now we'll combine the left and right eye renders into a single side-by-side stereo frame.
+
+### Step 9: Enable Compositor
+
+1. **Switch to Compositing Workspace:**
+   - At the top of Blender window, click `Compositing` tab
+   - Or manually switch layout to Compositor
+
+2. **Enable Nodes:**
+   - In the compositor header, check the box: `Use Nodes`
+   - You'll see a default Render Layers → Composite node setup
+
+3. **Clear Default Nodes:**
+   - Select all nodes: `A` (or `Ctrl + A` on some systems)
+   - Delete: `X` → Delete
+   - You now have an empty node editor
+
+---
+
+### Step 10: Build the Compositor Node Tree
+
+We'll create this node setup:
+```
+[Left Image] → [Scale Left] →┐
+                              ├→ [Combine] → [File Output]
+[Right Image] → [Scale Right] →┘
+```
+
+#### Add Image Input Nodes:
+
+1. **Left Eye Image Sequence:**
+   - Press `Shift + A` → Input → Image
+   - Click "Open" button in the node
+   - Navigate to `output/vr180/left/`
+   - Select the first frame: `left_0001.png`
+   - Check the box: `Image Sequence`
+   - Rename node (in sidebar): `Left Eye`
+
+2. **Right Eye Image Sequence:**
+   - Press `Shift + A` → Input → Image
+   - Click "Open"
+   - Navigate to `output/vr180/right/`
+   - Select `right_0001.png`
+   - Check: `Image Sequence`
+   - Rename: `Right Eye`
+
+#### Add Scale Nodes:
+
+3. **Scale Left Eye:**
+   - Press `Shift + A` → Distort → Scale
+   - In the node properties:
+     - **X:** `0.5` (scale to 50% width)
+     - **Y:** `1.0` (keep full height)
+   - Rename: `Scale Left`
+
+4. **Scale Right Eye:**
+   - Press `Shift + A` → Distort → Scale
+   - Properties:
+     - **X:** `0.5`
+     - **Y:** `1.0`
+   - Rename: `Scale Right`
+
+#### Add Translate Nodes:
+
+5. **Translate Left Eye:**
+   - Press `Shift + A` → Distort → Transform
+   - In node properties:
+     - **X:** `-1920` (move left eye to left half)
+     - **Y:** `0`
+   - Rename: `Translate Left`
+
+6. **Translate Right Eye:**
+   - Press `Shift + A` → Distort → Transform
+   - Properties:
+     - **X:** `1920` (move right eye to right half)
+     - **Y:** `0`
+   - Rename: `Translate Right`
+
+#### Combine Images:
+
+7. **Alpha Over Node:**
+   - Press `Shift + A` → Color → Alpha Over
+   - This composites the two eyes together
+   - **Fac:** `1.0` (full blend)
+
+#### Output Node:
+
+8. **File Output Node:**
+   - Press `Shift + A` → Output → File Output
+   - In node properties:
+     - **Base Path:** Set to `output/vr180/final/`
+     - **File Subpath:** `vr180_`
+     - **File Format:** `PNG` or `FFmpeg video`
+     - **Color Depth:** `8` bit (or `16` bit)
+
+9. **Composite Node (optional):**
+   - Press `Shift + A` → Output → Composite
+   - Lets you preview in Blender's viewer
+
+---
+
+### Step 11: Connect the Nodes
+
+Connect the nodes in this order:
+
+1. **Left Eye Chain:**
+   - `Left Eye` (Image) → `Image` output
+   - → `Scale Left` (Scale) → `Image` input
+   - → `Translate Left` (Transform) → `Image` input
+   - → `Alpha Over` (top input socket, usually "Image 1")
+
+2. **Right Eye Chain:**
+   - `Right Eye` (Image) → `Image` output
+   - → `Scale Right` (Scale) → `Image` input
+   - → `Translate Right` (Transform) → `Image` input
+   - → `Alpha Over` (bottom input socket, "Image 2")
+
+3. **Final Output:**
+   - `Alpha Over` → `Image` output
+   - → `File Output` → `Image` input
+   - (Optional) → `Composite` → `Image` input (for preview)
+
+#### Visual Node Layout (left to right):
+
+```
+Left Eye Image ──→ Scale Left ──→ Translate Left ──→┐
+                                                     ├─→ Alpha Over ──→ File Output
+Right Eye Image ──→ Scale Right ──→ Translate Right ──→┘                    ↓
+                                                                      Composite (optional)
+```
+
+---
+
+### Step 12: Render the Final Side-by-Side
+
+1. **Set Frame Range:**
+   - At the bottom timeline, set your start/end frames
+   - Should match the frames you rendered for left/right eyes
+
+2. **Render Compositor:**
+   - Go to: Properties → Render Properties
+   - Click: `Render` → `Render Animation`
+   - Or press: `Ctrl + F12`
+   - Blender will process the compositor node tree
+
+3. **Output:**
+   - Check `output/vr180/final/` folder
+   - You should see side-by-side frames: `vr180_0001.png`, etc.
+   - Each frame is 7680×3840 with left eye on left half, right eye on right half
+
+---
+
+## Part 4: Adjustments and Tips
+
+### Adjusting IPD (Inter-Pupillary Distance)
+
+If the stereo effect is too strong or too weak:
+
+1. **Select Left Camera:**
+   - Properties → Object Properties → Location
+   - X: `-[IPD in mm ÷ 2000]`
+   - Example: 70mm IPD = -0.035
+
+2. **Select Right Camera:**
+   - X: `+[IPD in mm ÷ 2000]`
+   - Example: 70mm IPD = +0.035
+
+**Common IPD Values:**
+- **55mm** (small): ±0.0275 - subtle stereo
+- **63mm** (average): ±0.0315 - standard
+- **70mm** (large): ±0.035 - pronounced stereo
+
+### Adjusting Field of View
+
+To change the horizontal FOV:
+
+1. **Select both cameras**
+2. **Camera Properties → Panorama Type settings:**
+   - **Longitude Min/Max:**
+     - 180° FOV: -90° to +90° (standard)
+     - 170° FOV: -85° to +85°
+     - 160° FOV: -80° to +80°
+
+### Resolution Presets
+
+**4K VR180:**
+- Resolution: 3840×1920
+- Per eye: 1920×1920
+
+**5K VR180:**
+- Resolution: 5120×2560
+- Per eye: 2560×2560
+
+**8K VR180 (recommended):**
+- Resolution: 7680×3840
+- Per eye: 3840×3840
+
+### Performance Tips
+
+**Faster Rendering:**
+1. Use GPU instead of CPU (Render Properties → Device)
+2. Lower samples for test renders (128-256)
+3. Enable Adaptive Sampling (Noise Threshold: 0.01)
+4. Reduce resolution scale to 50% for previews
+
+**Better Quality:**
+1. Increase render samples (1024-4096)
+2. Enable Denoising (Render Properties → Denoising)
+3. Use 16-bit color depth
+4. Increase light bounces
+
+---
+
+## Part 5: YouTube VR Upload Specs
+
+Your final output is ready for YouTube VR:
+
+**Format:**
+- Side-by-side stereo (left|right)
+- Equirectangular projection
+- 180° horizontal FOV
+
+**Recommended Upload Settings:**
+- Resolution: 7680×3840 (8K) or 5120×2560 (5K)
+- Frame rate: 30fps or 60fps
+- Codec: H.264 or H.265
+- Bitrate: 50-100 Mbps (high quality)
+
+**YouTube VR Metadata:**
+- Upload to YouTube
+- Add to title/description: "VR180"
+- YouTube will auto-detect the format
+- Optional: Use Google's Spatial Media Metadata Injector tool
+
+---
+
+## Troubleshooting
+
+### Camera shows black/nothing:
+- Check rotation is set to (90°, 0°, 0°)
+- Verify camera is parented to rig
+- Make sure you're in camera view (Numpad 0)
+
+### No stereo effect (images look identical):
+- Check IPD is not zero
+- Verify left camera X is negative, right is positive
+- Add a close object to test parallax
+
+### Compositor output is blank:
+- Verify image sequences are loaded correctly
+- Check frame numbers match
+- Ensure "Image Sequence" checkbox is enabled
+
+### Side-by-side looks wrong:
+- Verify Scale nodes are 0.5, 1.0
+- Check Translate X values: left=-1920, right=+1920
+- Ensure Alpha Over has both inputs connected
+
+### Renders are too slow:
+- Switch to GPU rendering
+- Lower sample count for tests
+- Reduce resolution scale percentage
+- Enable adaptive sampling
+
+---
+
+## Summary
+
+You've created:
+- ✅ Canon RF 5.2mm-inspired VR180 camera rig
+- ✅ Proper equirectangular 180° output (no circular crop)
+- ✅ 63mm IPD stereo separation (adjustable)
+- ✅ Side-by-side compositor for final output
+- ✅ YouTube VR-ready format
+
+**Next Steps:**
+- Test render a simple scene
+- Adjust IPD and FOV to your preference
+- Create VR content!
+- Upload to YouTube VR or other platforms
+
+---
+
+## Additional Resources
+
+- [Blender Cycles Panoramic Camera Docs](https://docs.blender.org/manual/en/latest/render/cameras.html)
+- [YouTube VR Upload Specs](https://support.google.com/youtube/answer/6316263)
+- [Spatial Media Metadata Injector](https://github.com/google/spatial-media)
+
+---
+
+**Questions or issues?** Check the troubleshooting section or open an issue in the project repository.

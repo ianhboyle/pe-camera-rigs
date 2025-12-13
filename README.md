@@ -6,6 +6,10 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ianhboyle/pe-camera-rigs/releases)
 [![License](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](./LICENSE)
 
+> **⚠️ Development Status:** The addon is currently under active development. While the Orbit and Isometric rigs are functional, the VR180 and VR360 workflows are being refined. In the meantime, **manual setup guides** are available for VR camera rigs:
+> - **[Manual VR180 Setup Guide](./docs/guides/manual-vr180-canon-setup.mdx)** - Canon RF 5.2mm-inspired stereoscopic setup
+> - **[Manual VR360 Setup Guide](./docs/guides/manual-vr360-mono-setup.mdx)** - Full 360° panoramic setup
+
 This addon automates the most frequently-used camera configurations in my Blender workflow, with primary focus on the VR180 pipeline. It eliminates manual setup overhead and enforces YouTube VR specification compliance for consistent output.
 
 ---
@@ -58,6 +62,11 @@ Four camera rigs I use constantly, divided into two categories:
 4. **[Isometric Camera](./docs/guides/04-isometric-camera.mdx)** - Isometric/axonometric views
 5. **[VR180 Workflow](./docs/guides/05-vr180-workflow.mdx)** - Stereoscopic VR content
 6. **[VR360 Workflow](./docs/guides/06-vr360-workflow.mdx)** - Panoramic VR content
+
+### Manual Setup Guides (While Addon is in Development)
+
+- **[Manual VR180 Setup](./docs/guides/manual-vr180-canon-setup.mdx)** - Complete manual setup for Canon-inspired VR180 cameras
+- **[Manual VR360 Setup](./docs/guides/manual-vr360-mono-setup.mdx)** - Complete manual setup for 360° panoramic cameras
 
 ### Reference
 

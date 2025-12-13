@@ -1,0 +1,590 @@
+# Manual VR360 Mono Setup - Full Panoramic Camera
+
+Complete guide for manually creating a monoscopic 360° panoramic camera rig in Blender with equirectangular output.
+
+## Overview
+
+This guide creates a single 360° × 180° panoramic camera for VR360 content. Perfect for virtual tours, 360° product showcases, immersive environments, and YouTube 360° videos.
+
+**What you'll create:**
+- Single equirectangular panoramic camera
+- Full 360° × 180° sphere capture
+- 2:1 aspect ratio output
+- YouTube 360° VR-ready format
+
+**Time required:** 10-15 minutes
+
+**Note:** VR360 Mono is simpler than VR180 because it's monoscopic (no stereo depth). Use VR180 if you need depth perception.
+
+---
+
+## Part 1: Camera Setup
+
+### Step 1: Create the Panoramic Camera
+
+1. **Add Camera:**
+   - Press `Shift + A` → Camera
+   - In Outliner, rename to: `VR360_Camera`
+
+2. **Position the Camera:**
+   - Properties Panel → Object Properties (orange cube icon)
+   - **Location:**
+     - X: `0`
+     - Y: `0`
+     - Z: `1.6` (eye level height in meters)
+   - **Rotation:**
+     - X: `90°` (points camera forward)
+     - Y: `0°`
+     - Z: `0°`
+
+3. **Configure Camera Data:**
+   - Properties Panel → Camera Properties (green camera icon)
+   - **Type:** Change to `Panoramic`
+   - **Panorama Type:** Select `Equirectangular`
+   - This automatically sets up 360° × 180° capture
+
+---
+
+### Step 2: Test the Camera View
+
+1. **Set as Active Camera:**
+   - Select `VR360_Camera`
+   - Press `Ctrl + Numpad 0` (sets as active camera)
+
+2. **View Through Camera:**
+   - Press `Numpad 0` (enter camera view)
+   - You should see a full 360° panoramic view
+   - Extreme distortion is normal for equirectangular
+
+3. **Navigate in Camera View:**
+   - Rotate the camera object (not the viewport) to look around
+   - Or use `R` + `Z` to rotate around Z-axis
+
+---
+
+### Step 3: Configure Render Settings
+
+1. **Output Properties** (Properties Panel → Output, printer icon):
+   - **Resolution:**
+     - **For 4K:** X: `4096`, Y: `2048`
+     - **For 5K:** X: `5120`, Y: `2560`
+     - **For 8K:** X: `7680`, Y: `3840`
+     - **Important:** Width must be exactly 2× height (2:1 aspect ratio)
+   - **% Scale:** `100%`
+   - **Frame Rate:** `30` fps (or 24/60 based on preference)
+
+2. **File Format:**
+   - **File Format:** `PNG` (for sequences) or `FFmpeg video` (for direct video)
+   - **Color:**
+     - **Color Depth:** `8` bit (or `16` bit for high quality)
+     - **Compression:** `15%` (good balance)
+
+---
+
+### Step 4: Configure Render Engine
+
+1. **Render Properties** (camera icon):
+   - **Render Engine:** Change to `Cycles`
+   - **Device:** `GPU Compute` (if available - much faster)
+
+2. **Sampling:**
+   - **Viewport:**
+     - **Max Samples:** `32` (for preview)
+   - **Render:**
+     - **Max Samples:** `128` (for test renders)
+     - **Max Samples:** `512-1024` (for final quality)
+     - **Noise Threshold:** `0.01` (adaptive sampling)
+     - Check: `Denoise` (for cleaner results)
+
+3. **Light Paths (optional quality boost):**
+   - **Max Bounces:** `12`
+   - **Diffuse:** `4`
+   - **Glossy:** `4`
+   - **Transmission:** `12`
+
+---
+
+## Part 2: Scene Setup (Optional)
+
+### Step 5: Add Test Objects
+
+To visualize the 360° capture:
+
+1. **Add a Ground Plane:**
+   - Press `Shift + A` → Mesh → Plane
+   - Press `S` (scale) → type `20` → Enter (20m × 20m)
+   - Position Z: `0`
+
+2. **Add Some Objects:**
+   - Press `Shift + A` → Mesh → Cube
+   - Move around the scene (position at Y: -5, different heights)
+   - Duplicate (`Shift + D`) and place in different directions
+   - This helps you see the 360° coverage
+
+3. **Add Lighting:**
+   - Press `Shift + A` → Light → Sun
+   - Or use World HDRI for realistic lighting (see below)
+
+---
+
+### Step 6: Set Up World Lighting (HDRI)
+
+For realistic outdoor/indoor lighting:
+
+1. **Switch to Shading Workspace:**
+   - Top tabs → `Shading`
+
+2. **Enable World Nodes:**
+   - At the bottom Shader Editor, switch dropdown from `Object` to `World`
+   - You should see `Background` → `World Output`
+
+3. **Add HDRI Environment:**
+   - `Shift + A` → Texture → Environment Texture
+   - Connect `Environment Texture` → `Color` socket of `Background`
+   - Click "Open" and load an HDRI file (.hdr or .exr)
+   - Or download free HDRIs from Poly Haven (polyhaven.com)
+
+4. **Adjust Strength:**
+   - In Background node, adjust `Strength`: `1.0` (default)
+   - Increase for brighter lighting, decrease for darker
+
+---
+
+## Part 3: Rendering
+
+### Step 7: Render a Single Frame
+
+1. **Set Output Path:**
+   - Properties → Output Properties
+   - Click folder icon
+   - Navigate to your project folder
+   - Create: `output/vr360/`
+   - Filename: `vr360_`
+
+2. **Test Render:**
+   - Press `F12` (render current frame)
+   - Wait for render to complete
+   - Check the result in the render window
+
+3. **What You Should See:**
+   - 2:1 aspect ratio image
+   - Full 360° × 180° sphere captured
+   - Horizon should be roughly in the middle
+   - Poles (top/bottom) will be heavily distorted (normal!)
+
+---
+
+### Step 8: Render Animation Sequence
+
+1. **Set Frame Range:**
+   - At bottom timeline, set Start: `1`, End: `250` (or your desired length)
+
+2. **Render Animation:**
+   - Press `Ctrl + F12`
+   - Blender will render all frames
+   - Monitor progress in top-left corner
+
+3. **Output:**
+   - Files will save to: `output/vr360/`
+   - Named: `vr360_0001.png`, `vr360_0002.png`, etc.
+
+---
+
+## Part 4: Compositor Setup (Optional Post-Processing)
+
+For color correction, effects, or video encoding:
+
+### Step 9: Enable Compositor
+
+1. **Switch to Compositing Workspace:**
+   - Top tabs → `Compositing`
+
+2. **Enable Nodes:**
+   - In compositor header, check: `Use Nodes`
+
+3. **Clear Default Setup (optional):**
+   - Select all: `A`
+   - Delete: `X` → Delete
+   - Start fresh
+
+---
+
+### Step 10: Basic Compositor Setup
+
+#### Simple Pass-Through (minimal processing):
+
+1. **Image Sequence Input:**
+   - `Shift + A` → Input → Image
+   - Click "Open"
+   - Navigate to `output/vr360/`
+   - Select first frame: `vr360_0001.png`
+   - Check: `Image Sequence`
+
+2. **File Output:**
+   - `Shift + A` → Output → File Output
+   - Set **Base Path:** `output/vr360/final/`
+   - **File Subpath:** `final_`
+   - **Format:** `PNG` or `FFmpeg video`
+
+3. **Connect:**
+   - `Image` → `Image` output → `File Output` → `Image` input
+
+---
+
+### Step 11: Advanced Compositor (Color Grading)
+
+For better control over the final look:
+
+1. **Start with Image Sequence node** (from Step 10)
+
+2. **Add Color Correction:**
+   - `Shift + A` → Color → Color Balance
+   - Adjust Lift/Gamma/Gain for color grading
+   - Connect: `Image Sequence` → `Color Balance`
+
+3. **Add Brightness/Contrast:**
+   - `Shift + A` → Color → Brightness/Contrast
+   - Adjust to taste
+   - Connect: `Color Balance` → `Brightness/Contrast`
+
+4. **Add Glare (optional):**
+   - `Shift + A` → Filter → Glare
+   - Type: `Fog Glow` or `Streaks`
+   - Adds cinematic bloom
+   - Connect: `Brightness/Contrast` → `Glare`
+
+5. **Final Output:**
+   - `Shift + A` → Output → File Output
+   - Connect: `Glare` → `File Output`
+
+#### Node Flow:
+```
+Image Sequence → Color Balance → Brightness/Contrast → Glare → File Output
+```
+
+---
+
+### Step 12: Render Compositor
+
+1. **Set Frame Range:**
+   - Match your original render range
+
+2. **Render:**
+   - `Render` → `Render Animation`
+   - Or press `Ctrl + F12`
+
+3. **Output:**
+   - Check `output/vr360/final/` folder
+   - Processed frames with your color grading applied
+
+---
+
+## Part 5: Video Encoding
+
+### Step 13: Encode to Video (In Blender)
+
+1. **Open Video Editing Workspace:**
+   - Top tabs → `Video Editing`
+
+2. **Add Image Sequence:**
+   - In Sequencer, press `Shift + A` → Image/Sequence
+   - Navigate to your final frames folder
+   - Select all frames (or first frame with "Image Sequence" checked)
+   - Click "Add Image Strip"
+
+3. **Configure Output:**
+   - Properties → Output Properties
+   - **File Format:** `FFmpeg video`
+   - **Container:** `MPEG-4` (for MP4)
+   - **Video Codec:** `H.264`
+   - **Output Quality:** `High Quality` or `Perceptually Lossless`
+   - **Encoding Speed:** `Good` (balance) or `Best` (slower, better quality)
+   - **Audio Codec:** `AAC` (if adding audio)
+
+4. **Set Output Path:**
+   - Base Path: `output/vr360/`
+   - Filename: `vr360_final.mp4`
+
+5. **Render Video:**
+   - `Render` → `Render Animation`
+   - Final MP4 video will be created
+
+---
+
+### Step 14: Alternative - FFmpeg Command Line
+
+For advanced users, encode via terminal:
+
+```bash
+cd output/vr360/final/
+
+ffmpeg -framerate 30 -i final_%04d.png \
+  -c:v libx264 \
+  -preset slow \
+  -crf 18 \
+  -pix_fmt yuv420p \
+  -movflags +faststart \
+  vr360_final.mp4
+```
+
+**Parameters explained:**
+- `-framerate 30`: 30 fps output
+- `-i final_%04d.png`: Input frame pattern
+- `-c:v libx264`: H.264 codec
+- `-preset slow`: Better compression (slower encode)
+- `-crf 18`: Quality (lower = better, 18 = high quality)
+- `-pix_fmt yuv420p`: Compatible with most players
+- `-movflags +faststart`: Web streaming optimization
+
+---
+
+## Part 6: Camera Animation (Optional)
+
+### Step 15: Animate Camera Movement
+
+**Option A: Keyframe Animation**
+
+1. **Position Camera at Start:**
+   - Frame 1: Set camera location/rotation
+   - Press `I` → `Location & Rotation` (insert keyframe)
+
+2. **Move Camera to End Position:**
+   - Frame 250: Change camera position
+   - Press `I` → `Location & Rotation`
+
+3. **Smooth Animation:**
+   - Select camera
+   - Open Graph Editor
+   - Select all curves: `A`
+   - `Key` → `Handle Type` → `Auto Clamped`
+
+**Option B: Follow Path**
+
+1. **Add Bezier Curve:**
+   - `Shift + A` → Curve → Bezier
+   - Edit curve (Tab) to create camera path
+
+2. **Add Follow Path Constraint:**
+   - Select camera
+   - Properties → Constraints (chain link icon)
+   - `Add Constraint` → `Follow Path`
+   - Target: Select your curve
+   - Check: `Follow Curve`
+   - Check: `Fixed Position`
+
+3. **Animate Path:**
+   - In constraint settings, animate `Offset Factor` from 0 to 1
+
+**Option C: Parent to Empty**
+
+1. **Add Empty at World Origin:**
+   - `Shift + A` → Empty → Plain Axes
+
+2. **Parent Camera to Empty:**
+   - Select camera, then empty
+   - `Ctrl + P` → `Object (Keep Transform)`
+
+3. **Animate Empty Rotation:**
+   - Rotate empty around Z-axis
+   - Camera rotates around scene center (360° pan)
+
+---
+
+## Part 7: Quality Settings
+
+### Resolution Presets
+
+**4K VR360:**
+- Resolution: 4096×2048
+- Use case: Web streaming, mobile VR
+- File size: Medium
+
+**5K VR360 (YouTube Standard):**
+- Resolution: 5120×2560
+- Use case: YouTube 360°, general VR
+- File size: Large
+
+**8K VR360 (High Quality):**
+- Resolution: 7680×3840
+- Use case: Professional VR, VR headsets
+- File size: Very large
+
+**Note:** Always maintain 2:1 aspect ratio (width = 2× height)
+
+---
+
+### Render Quality Presets
+
+**Preview Quality:**
+- Samples: 64-128
+- Denoise: On
+- Resolution: 50% scale
+- Use for: Quick tests, animation preview
+
+**Production Quality:**
+- Samples: 512
+- Denoise: On
+- Resolution: 100%
+- Use for: Client review, draft delivery
+
+**Final Quality:**
+- Samples: 1024-4096
+- Denoise: On (or off for maximum detail)
+- Resolution: 100%
+- Use for: Final delivery, professional work
+
+---
+
+## Part 8: YouTube 360° Upload
+
+### Step 16: Prepare for YouTube
+
+Your video is ready for YouTube 360°:
+
+**Format Requirements:**
+- Equirectangular projection ✓
+- 2:1 aspect ratio ✓
+- MP4 container ✓
+- H.264 codec ✓
+
+**Recommended Settings:**
+- Resolution: 5120×2560 (5K) or 7680×3840 (8K)
+- Frame rate: 30fps or 60fps
+- Bitrate: 40-80 Mbps for 5K, 80-150 Mbps for 8K
+
+**Optional: Spatial Metadata Injection**
+
+1. **Download Google Spatial Media Metadata Injector:**
+   - https://github.com/google/spatial-media
+
+2. **Run the tool:**
+   ```bash
+   python spatial-media -i vr360_final.mp4 vr360_final_injected.mp4
+   ```
+
+3. **Flags to add:**
+   - Spherical: Yes
+   - Stereo: Mono
+
+**Upload to YouTube:**
+1. Upload your video to YouTube
+2. Add "360°" or "360 Video" to title/description
+3. YouTube will auto-detect equirectangular format
+4. Wait for 360° processing (can take hours for high-res)
+5. Test in YouTube VR app or browser
+
+---
+
+## Troubleshooting
+
+### Camera shows black/nothing:
+- Check camera rotation is (90°, 0°, 0°)
+- Verify you're in camera view (`Numpad 0`)
+- Make sure Cycles renderer is selected
+- Check camera isn't inside an object
+
+### Output aspect ratio is wrong:
+- Must be exactly 2:1 (width = 2× height)
+- Common ratios: 4096×2048, 5120×2560, 7680×3840
+- Check Output Properties → Resolution
+
+### Extreme distortion at top/bottom:
+- This is normal for equirectangular projection!
+- Poles (zenith/nadir) are heavily stretched
+- Looks correct in VR headset/360° player
+
+### Renders are too slow:
+- Switch to GPU rendering (if available)
+- Lower sample count for tests
+- Reduce resolution scale percentage
+- Enable adaptive sampling + denoising
+
+### YouTube doesn't recognize as 360°:
+- Verify 2:1 aspect ratio
+- Check equirectangular projection was used
+- Try injecting spatial metadata
+- Add "360" to title/description
+- Wait for YouTube processing (can take hours)
+
+### Video file is too large:
+- Lower resolution (8K → 5K → 4K)
+- Reduce bitrate in encoder settings
+- Use more compression (higher CRF value)
+- Shorter duration
+
+---
+
+## Tips and Best Practices
+
+### Camera Placement:
+- **Eye level (1.6m-1.8m):** Natural viewing height
+- **Ground level (0.1m-0.3m):** Dramatic wide shots
+- **Elevated (3m-5m):** Overview perspectives
+- **Center of scene:** Best for static 360° showcases
+
+### Lighting Tips:
+- Use HDRIs for realistic outdoor lighting
+- Avoid harsh shadows (soft lighting works better)
+- Consider lighting from multiple angles (360° visibility)
+- Test renders at different times of day
+
+### Scene Design:
+- Place interesting content in all directions (not just front)
+- Avoid empty areas (viewers can look anywhere)
+- Use ground/sky to frame the scene
+- Consider the nadir (bottom) - often visible in VR
+
+### Performance:
+- Use GPU rendering for 2-10× speed boost
+- Start with low samples, increase for final
+- Render overnight for high-quality 8K sequences
+- Use denoising to reduce required samples
+
+### File Management:
+- Keep separate folders: renders, final, source
+- Use frame sequences (easier to resume if crash)
+- Back up large renders (can be 100s of GB)
+- Archive project files after completion
+
+---
+
+## Summary
+
+You've created:
+- ✅ Single equirectangular panoramic camera
+- ✅ Full 360° × 180° sphere capture
+- ✅ Proper 2:1 aspect ratio output
+- ✅ Optional compositor for color grading
+- ✅ YouTube 360° VR-ready format
+
+**Comparison to VR180:**
+- **Simpler:** No stereo complexity
+- **Wider coverage:** Full 360° (not just 180°)
+- **No depth:** Monoscopic only
+- **Smaller files:** Single camera (not dual)
+
+**Use VR360 Mono for:**
+- Virtual tours (real estate, museums)
+- Environmental showcases
+- 360° product presentations
+- Landscape/architecture visualization
+- YouTube 360° videos
+
+**Use VR180 (stereo) for:**
+- Immersive VR experiences
+- Content requiring depth perception
+- Close-up VR interactions
+
+---
+
+## Additional Resources
+
+- [Blender Cycles Panoramic Cameras](https://docs.blender.org/manual/en/latest/render/cameras.html)
+- [YouTube 360° Video Specs](https://support.google.com/youtube/answer/6178631)
+- [Google Spatial Media Tools](https://github.com/google/spatial-media)
+- [Poly Haven - Free HDRIs](https://polyhaven.com/hdris)
+- [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
+
+---
+
+**Questions or issues?** Check the troubleshooting section above or open an issue in the project repository.

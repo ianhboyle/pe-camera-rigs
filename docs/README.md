@@ -16,6 +16,15 @@ Complete documentation for the PE Camera Rigs addon for Blender.
 5. **[VR180 Workflow](./guides/05-vr180-workflow.mdx)** - Stereoscopic 180° VR content
 6. **[VR360 Workflow](./guides/06-vr360-workflow.mdx)** - Monoscopic 360° panoramic VR
 
+**Manual Setup Guides (While Addon is in Development):**
+
+> **Note:** The VR camera rig automation is currently being refined. Use these comprehensive manual guides for full control over VR camera setups:
+
+- **[Manual VR180 Setup](./guides/manual-vr180-canon-setup.mdx)** - Step-by-step Canon RF 5.2mm-inspired stereoscopic VR180 setup with compositor workflow
+- **[Manual VR360 Setup](./guides/manual-vr360-mono-setup.mdx)** - Step-by-step 360° panoramic camera setup with full post-processing pipeline
+
+These manual guides provide complete workflows including camera configuration, rendering, compositing, and YouTube VR preparation.
+
 **Reference:**
 7. **[Troubleshooting](./guides/07-troubleshooting.mdx)** - Common issues and solutions
 8. **[Packaging Guide](./guides/08-packaging.mdx)** - For developers building from source
@@ -67,7 +76,9 @@ docs/
 │   ├── 05-vr180-workflow.mdx
 │   ├── 06-vr360-workflow.mdx
 │   ├── 07-troubleshooting.mdx
-│   └── 08-packaging.mdx
+│   ├── 08-packaging.mdx
+│   ├── manual-vr180-canon-setup.mdx   ← Manual VR180 setup
+│   └── manual-vr360-mono-setup.mdx    ← Manual VR360 setup
 ├── specs/                             ← Technical specifications
 │   └── cameras/
 │       ├── orbit-01-userflow-and-ux.mdx
