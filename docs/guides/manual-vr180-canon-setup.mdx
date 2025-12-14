@@ -95,6 +95,16 @@ This guide creates a stereoscopic VR180 camera rig that mimics Canon's RF 5.2mm 
      - X: `7680` (for side-by-side: 3840 per eye)
      - Y: `3840` (square per eye when split)
      - % Scale: `100%`
+
+> **Pro Tip for Faster Renders:**
+> This guide uses a single resolution (`7680x3840`) for the whole process to keep things simple. However, this is inefficient as each eye is rendered at full width then scaled down.
+>
+> For a faster workflow:
+> 1.  For **Part 2 (Rendering Individual Eyes)**, set your resolution to match your per-eye target (e.g., `3840x3840`).
+> 2.  Render the left and right eye sequences. They will render much faster.
+> 3.  Before starting **Part 3 (Compositor)**, change the resolution back to the final side-by-side dimensions (e.g., `7680x3840`).
+> 4.  In the compositor (Step 10), you can **skip adding the "Scale" nodes**, as your images are already the correct size.
+
    - **Frame Rate:** `30` fps (or 24/60 based on preference)
    - **Frame Range:** Set your start/end frames
 
@@ -262,21 +272,23 @@ We'll create this node setup:
      - **Y:** `1.0`
    - Rename: `Scale Right`
 
-#### Add Translate Nodes:
+#### Add Transform Nodes:
 
-5. **Translate Left Eye:**
+5. **Transform Left Eye:**
    - Press `Shift + A` → Distort → Transform
    - In node properties:
      - **X:** `-1920` (move left eye to left half)
      - **Y:** `0`
-   - Rename: `Translate Left`
+   - Rename: `Transform Left`
 
-6. **Translate Right Eye:**
+6. **Transform Right Eye:**
    - Press `Shift + A` → Distort → Transform
    - Properties:
      - **X:** `1920` (move right eye to right half)
      - **Y:** `0`
-   - Rename: `Translate Right`
+   - Rename: `Transform Right`
+
+> **Note on Transform Values:** The `X` value of `1920` is used because our final output width is `7680px`. The formula is `Final Width / 4`. If you were creating a 4K (`3840px` wide) output, you would use `3840 / 4 = 960`.
 
 #### Combine Images:
 
@@ -308,13 +320,13 @@ Connect the nodes in this order:
 1. **Left Eye Chain:**
    - `Left Eye` (Image) → `Image` output
    - → `Scale Left` (Scale) → `Image` input
-   - → `Translate Left` (Transform) → `Image` input
+   - → `Transform Left` (Transform) → `Image` input
    - → `Alpha Over` (top input socket, usually "Image 1")
 
 2. **Right Eye Chain:**
    - `Right Eye` (Image) → `Image` output
    - → `Scale Right` (Scale) → `Image` input
-   - → `Translate Right` (Transform) → `Image` input
+   - → `Transform Right` (Transform) → `Image` input
    - → `Alpha Over` (bottom input socket, "Image 2")
 
 3. **Final Output:**
@@ -325,9 +337,9 @@ Connect the nodes in this order:
 #### Visual Node Layout (left to right):
 
 ```
-Left Eye Image ──→ Scale Left ──→ Translate Left ──→┐
+Left Eye Image ──→ Scale Left ──→ Transform Left ──→┐
                                                      ├─→ Alpha Over ──→ File Output
-Right Eye Image ──→ Scale Right ──→ Translate Right ──→┘                    ↓
+Right Eye Image ──→ Scale Right ──→ Transform Right ──→┘                    ↓
                                                                       Composite (optional)
 ```
 
@@ -455,7 +467,7 @@ Your final output is ready for YouTube VR:
 
 ### Side-by-side looks wrong:
 - Verify Scale nodes are 0.5, 1.0
-- Check Translate X values: left=-1920, right=+1920
+- Check Transform X values: left=-1920, right=+1920 (for a 7680px wide output)
 - Ensure Alpha Over has both inputs connected
 
 ### Renders are too slow:
